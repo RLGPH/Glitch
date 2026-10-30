@@ -1,5 +1,25 @@
+# --- Existing Rider Rules ---
 bin/
 obj/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/
+
+# --- Visual Studio Temporary & User Files ---
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# --- Build Output and Cache Folders ---
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+Build/
+
+# --- OS Junk Files ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
