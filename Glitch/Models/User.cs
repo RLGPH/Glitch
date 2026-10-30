@@ -13,5 +13,7 @@
         public DateTime CreatedAt { get; set; }
 
         public bool IsActive { get; set; }
+
+        public Profile Profile { get; set; }
     }
 }
