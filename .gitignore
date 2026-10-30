@@ -4,6 +4,7 @@ obj/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/
+<<<<<<< HEAD
 
 # --- Visual Studio Temporary & User Files ---
 .vs/
@@ -23,3 +24,6 @@ Build/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+=======
+.vs/
+>>>>>>> 6f754ef15865d067e421009b7bbaec4325c84596
