@@ -1,15 +1,38 @@
-html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap');
+
+/* Farver */
+:root {
+    --color-background: #fff5fa;
+    --color-surface: #ffffff;
+    --color-pink: #f3bfd9;
+    --color-blue: #d5eafb;
+    --color-text: #343044;
+    --color-border: #eadde8;
+    --color-focus: #975374;
 }
+
+h1 {
+    font-family: "Caveat", cursive;
+    font-size: 3rem;
+    font-weight: 700;
+}
+
+html, body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background-color: var(--color-background);
+    color: var(--color-text);
+}
+
+
 
 a, .btn-link {
     color: #006bb7;
 }
 
 .btn-primary {
-    color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
+    color: var(--color-text);
+    background-color: var(--color-pink);
+    border-color: var(--color-pink);
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {

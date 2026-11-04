@@ -1,0 +1,62 @@
+.profile-page {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.profile-header {
+    margin-bottom: 24px;
+}
+
+.profile-card {
+    padding: 24px;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+}
+
+.profile-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.profile-field + .profile-field {
+    margin-top: 24px;
+}
+
+.profile-field label {
+    font-weight: 600;
+}
+
+.profile-field ::deep input,
+.profile-field ::deep textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    font: inherit;
+    color: var(--color-text);
+    background-color: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+}
+
+.profile-field ::deep textarea {
+    resize: vertical;
+}
+
+.profile-field ::deep input:focus-visible,
+.profile-field ::deep textarea:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+}
+
+.profile-card ::deep button[type="submit"] {
+    margin-top: 24px;
+}
+
+.preview-image {
+    display: block;
+    max-width: 100%;
+    width: 200px;
+    height: auto;
+}

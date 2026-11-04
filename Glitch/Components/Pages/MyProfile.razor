@@ -1,0 +1,135 @@
+@page "/my-profile"
+@rendermode InteractiveServer
+@using Glitch.ViewModels
+
+<PageTitle>Min profil – GLITCH</PageTitle>
+
+<section class="profile-page">
+    <header class="profile-header">
+        <h1>Min profil</h1>
+        <p>Fortæl lidt om dig selv.</p>
+    </header>
+
+    <div class="profile-card">
+        <EditForm EditContext="editContext" OnValidSubmit="HandleValidSubmit" OnInvalidSubmit="ClearStatus">
+            <DataAnnotationsValidator />
+
+            <div class="profile-field">
+                <label for="profile-image">Profilbillede</label>
+
+                <InputFile id="profile-image"  OnChange="HandleImageSelected" accept="image/jpeg,image/png"/>
+                @if(!string.IsNullOrEmpty(imageError))
+                {
+                    <p role="alert" class="validation-message">@imageError</p>
+                }
+                @if( !string.IsNullOrEmpty(imagePreviewUrl)){
+                <img src="@imagePreviewUrl" alt="Forhåndsvisning af profilbillede" />
+                }
+                
+                <p>@selectedImageName</p>
+
+                <ValidationMessage For="@(() => form.ProfileImage)" />
+                
+            </div>
+
+            <div class="profile-field">
+                <label for="display-name">Dit navn</label>
+
+                <InputText id="display-name" @bind-Value="form.DisplayName" @bind-Value:after="ClearStatus" />
+
+                <ValidationMessage For="@(() => form.DisplayName)" />
+            </div>
+
+            <div class="profile-field">
+                <label for="bio">Om dig</label>
+
+                <InputTextArea id="bio" rows="4" @bind-Value="form.Bio" @bind-Value:after="ClearStatus" />
+
+                <ValidationMessage For="@(() => form.Bio)" />
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                Kontrollér oplysninger
+            </button>
+        </EditForm>
+
+        <p role="status">@statusMessage</p>
+    </div>
+</section>
+
+@code {
+    private ProfileFormModel form = new();
+
+    private string statusMessage = string.Empty;
+
+    private void HandleValidSubmit()
+    {
+        statusMessage = "Navn og profiltekst og billede er gyldige";
+    }
+
+    private void ClearStatus()
+    {
+        statusMessage = string.Empty;
+    }
+
+
+    private string imagePreviewUrl = string.Empty;
+    private string imageError = string.Empty;
+    private string selectedImageName = string.Empty;
+    private EditContext editContext = default!;
+
+    private async Task HandleImageSelected(InputFileChangeEventArgs e)
+    {
+        ClearStatus();
+
+        imagePreviewUrl = string.Empty;
+        imageError = string.Empty;
+        selectedImageName = string.Empty;
+        form.ProfileImage = null;
+        editContext.NotifyFieldChanged(
+        new FieldIdentifier(form, nameof(form.ProfileImage)));
+
+        var file = e.File;
+        const long maxFileSize = 2 * 1024 * 1024;
+
+        if (file.ContentType != "image/jpeg" &&
+            file.ContentType != "image/png")
+        {
+            imageError = "Vælg et JPEG- eller PNG-billede.";
+            return;
+        }
+
+        if (file.Size > maxFileSize)
+        {
+            imageError = "Billedet må højst fylde 2 MB.";
+            return;
+        }
+
+        try
+        {
+            using var stream = file.OpenReadStream(maxFileSize);
+            using var memory = new MemoryStream();
+
+            await stream.CopyToAsync(memory);
+
+            var base64 = Convert.ToBase64String(memory.ToArray());
+
+            imagePreviewUrl =
+                $"data:{file.ContentType};base64,{base64}";
+
+            selectedImageName = file.Name;
+            form.ProfileImage = file;
+            editContext.NotifyFieldChanged(
+        new FieldIdentifier(form, nameof(form.ProfileImage)));
+        }
+        catch (IOException)
+        {
+            imageError = "Billedet kunne ikke læses. Prøv igen.";
+        }
+    }
+    protected override void OnInitialized()
+{
+    editContext = new EditContext(form);
+}
+
+}
