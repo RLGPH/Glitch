@@ -2,20 +2,29 @@
 @rendermode InteractiveServer
 @using Glitch.Models
 
-<PageTitle>Min profil</PageTitle>
+<PageTitle>Min profil – GLITCH</PageTitle>
 
-<h1>Min profil</h1>
+<section class="profile-page">
+    <header class="profile-header">
+        <h1>Min profil</h1>
+        <p>Fortæl lidt om dig selv.</p>
+    </header>
 
-<label>
-    <input @bind="profile.DisplayName" />
-</label>
+    <div class="profile-card">
+        <div class="profile-field">
+            <label for="display-name">Dit navn</label>
+            <input id="display-name"
+                   @bind="profile.DisplayName" />
+        </div>
 
-<h2>@profile.DisplayName</h2>
-<label>
-    <textarea @bind="profile.Bio" ></textarea>
-</label>
-
-<p>@profile.Bio</p>
+        <div class="profile-field">
+            <label for="bio">Om dig</label>
+            <textarea id="bio"
+                      rows="4"
+                      @bind="profile.Bio"></textarea>
+        </div>
+    </div>
+</section>
 
 @code {
     private Profile profile = new()
