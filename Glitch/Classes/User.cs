@@ -1,4 +1,4 @@
-﻿namespace Glitch.Models
+﻿namespace Glitch.Classes
 {
     public class User
     {
