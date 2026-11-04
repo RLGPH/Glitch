@@ -1,4 +1,4 @@
-﻿using Glitch.Models;
+﻿using Glitch.Classes;
 
 namespace Glitch.Methods
 {
