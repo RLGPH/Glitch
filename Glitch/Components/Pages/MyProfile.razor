@@ -1,0 +1,26 @@
+@page "/my-profile"
+@rendermode InteractiveServer
+@using Glitch.Models
+
+<PageTitle>Min profil</PageTitle>
+
+<h1>Min profil</h1>
+
+<label>
+    <input @bind="profile.DisplayName" />
+</label>
+
+<h2>@profile.DisplayName</h2>
+<label>
+    <textarea @bind="profile.Bio" ></textarea>
+</label>
+
+<p>@profile.Bio</p>
+
+@code {
+    private Profile profile = new()
+    {
+        DisplayName = "Testbruger",
+        Bio = "Jeg kan godt lide gaming og musik"
+    };
+}
