@@ -1,0 +1,11 @@
+@page "/chat/{MatchId:int}"
+
+<PageTitle>Chat – GLITCH</PageTitle>
+
+<h1>Chat</h1>
+<p>Du har åbnet chatten for match @MatchId.</p>
+
+@code {
+    [Parameter]
+    public int MatchId { get; set; }
+}
