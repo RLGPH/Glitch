@@ -16,15 +16,12 @@ public class Matchmaking_service
     {
         _context = context;
     }
-
-    /// <summary>
-    /// Fetches ranked potential matches straight from the database.
-    /// </summary>
+    
     public async Task<List<ProfileMatchScore>> GetPotentialMatchesAsync(int currentProfileId)
     {
         // 1. Find all profile IDs the user has already swiped on
         var excludedProfileIds = await _context.Swipes
-            .Where(s => s.FromPrifileID == currentProfileId) // Matches your model's FromPrifileID typo
+            .Where(s => s.FromProfileID == currentProfileId) 
             .Select(s => s.ToProfileID)
             .ToListAsync();
 
@@ -33,7 +30,7 @@ public class Matchmaking_service
 
         // 2. Extract lists of the current user's condition and interest IDs to use in our matching query
         var currentUserConditionIds = await _context.ProfileConditions
-            .Where(pc => pc.Profilefield == currentProfileId) // Matches your Profilefield typo
+            .Where(pc => pc.Profilefield == currentProfileId) 
             .Select(pc => pc.ConditionID)
             .ToListAsync();
 

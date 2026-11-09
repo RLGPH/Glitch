@@ -10,8 +10,10 @@ public sealed class GlitchDbContext(DbContextOptions<GlitchDbContext> options) :
     public DbSet<Profile> Profiles => Set<Profile>();
 
     public DbSet<Swipe> Swipes => Set<Swipe>();
-
-    public DbSet<ProfileMatch> Matches => Set<ProfileMatch>();
+    
+    public DbSet<Match> Matches => Set<Match>();
+    
+    public DbSet<Message> Messages => Set<Message>();
 
     public DbSet<Condition> Conditions => Set<Condition>();
 
@@ -64,14 +66,14 @@ public sealed class GlitchDbContext(DbContextOptions<GlitchDbContext> options) :
 
             entity.HasIndex(swipe => new
             {
-                swipe.FromPrifileID,
+                swipe.FromProfileID,
                 swipe.ToProfileID
             })
             .IsUnique();
 
             entity.HasOne<Profile>()
                 .WithMany()
-                .HasForeignKey(swipe => swipe.FromPrifileID)
+                .HasForeignKey(swipe => swipe.FromProfileID)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne<Profile>()
@@ -79,8 +81,8 @@ public sealed class GlitchDbContext(DbContextOptions<GlitchDbContext> options) :
                 .HasForeignKey(swipe => swipe.ToProfileID)
                 .OnDelete(DeleteBehavior.Restrict);
         });
-
-        modelBuilder.Entity<ProfileMatch>(entity =>
+        
+        modelBuilder.Entity<Match>(entity =>
         {
             entity.HasKey(match => match.ID);
 
@@ -93,6 +95,20 @@ public sealed class GlitchDbContext(DbContextOptions<GlitchDbContext> options) :
                 .WithMany()
                 .HasForeignKey(match => match.ProfileBID)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+        
+        modelBuilder.Entity<Message>(entity =>
+        {
+            entity.HasKey(msg => msg.ID);
+
+            entity.Property(msg => msg.Text)
+                .IsRequired()
+                .HasMaxLength(4000);
+
+            entity.HasOne<Profile>()
+                .WithMany()
+                .HasForeignKey(msg => msg.SenderProfileID)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Condition>(entity =>

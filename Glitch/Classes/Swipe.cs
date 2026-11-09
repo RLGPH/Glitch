@@ -4,7 +4,7 @@
     {
         public int ID { get; set; }
 
-        public int FromPrifileID { get; set; }
+        public int FromProfileID { get; set; }
 
         public int ToProfileID { get; set; }
 
