@@ -1,6 +1,6 @@
 ﻿namespace Glitch.Classes
 {
-    public class Match
+    public class ProfileMatch
     {
         public int ID { get; set; }
 

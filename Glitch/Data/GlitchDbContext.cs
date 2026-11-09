@@ -11,7 +11,15 @@ public sealed class GlitchDbContext(DbContextOptions<GlitchDbContext> options) :
 
     public DbSet<Swipe> Swipes => Set<Swipe>();
 
-    public DbSet<Match> Matches => Set<Match>();
+    public DbSet<ProfileMatch> Matches => Set<ProfileMatch>();
+
+    public DbSet<Condition> Conditions => Set<Condition>();
+
+    public DbSet<Interest> Interests => Set<Interest>();
+
+    public DbSet<ProfileCondition> ProfileConditions => Set<ProfileCondition>();
+
+    public DbSet<ProfileInterest> ProfileInterests => Set<ProfileInterest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,11 +50,24 @@ public sealed class GlitchDbContext(DbContextOptions<GlitchDbContext> options) :
             entity.Property(profile => profile.DisplayName)
                 .IsRequired()
                 .HasMaxLength(100);
+
+            entity.Property(profile => profile.Bio)
+                .HasMaxLength(2000);
+
+            entity.Property(profile => profile.ImagePath)
+                .HasMaxLength(500);
         });
 
         modelBuilder.Entity<Swipe>(entity =>
         {
             entity.HasKey(swipe => swipe.ID);
+
+            entity.HasIndex(swipe => new
+            {
+                swipe.FromPrifileID,
+                swipe.ToProfileID
+            })
+            .IsUnique();
 
             entity.HasOne<Profile>()
                 .WithMany()
@@ -59,7 +80,7 @@ public sealed class GlitchDbContext(DbContextOptions<GlitchDbContext> options) :
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        modelBuilder.Entity<Match>(entity =>
+        modelBuilder.Entity<ProfileMatch>(entity =>
         {
             entity.HasKey(match => match.ID);
 
@@ -72,6 +93,70 @@ public sealed class GlitchDbContext(DbContextOptions<GlitchDbContext> options) :
                 .WithMany()
                 .HasForeignKey(match => match.ProfileBID)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Condition>(entity =>
+        {
+            entity.HasKey(condition => condition.ID);
+
+            entity.Property(condition => condition.Name)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(condition => condition.Category)
+                .IsRequired()
+                .HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<Interest>(entity =>
+        {
+            entity.HasKey(interest => interest.InterestID);
+
+            entity.Property(interest => interest.Name)
+                .IsRequired()
+                .HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<ProfileCondition>(entity =>
+        {
+            entity.HasKey(profileCondition => new
+            {
+                profileCondition.Profilefield,
+                profileCondition.ConditionID
+            });
+
+            entity.HasIndex(profileCondition => profileCondition.ConditionID);
+
+            entity.HasOne<Profile>()
+                .WithMany()
+                .HasForeignKey(profileCondition => profileCondition.Profilefield)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne<Condition>()
+                .WithMany()
+                .HasForeignKey(profileCondition => profileCondition.ConditionID)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProfileInterest>(entity =>
+        {
+            entity.HasKey(profileInterest => new
+            {
+                profileInterest.ProfileID,
+                profileInterest.InterestID
+            });
+
+            entity.HasIndex(profileInterest => profileInterest.InterestID);
+
+            entity.HasOne<Profile>()
+                .WithMany()
+                .HasForeignKey(profileInterest => profileInterest.ProfileID)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne<Interest>()
+                .WithMany()
+                .HasForeignKey(profileInterest => profileInterest.InterestID)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
