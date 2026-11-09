@@ -2,8 +2,17 @@
 @page "/my-profile"
 @rendermode InteractiveServer
 
+
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+@using Glitch.Classes
+@using Glitch.Data
 @using Glitch.ViewModels
+@using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Components.Forms
+
+@inject IDbContextFactory<GlitchDbContext> DbFactory
 
 <PageTitle>Min profil – GLITCH</PageTitle>
 
@@ -11,183 +20,181 @@
 
     <header class="profile-header">
         <h1>Min profil</h1>
-        <p>
-            Fortæl lidt om dig selv, og hvad der gør dig unik.
-        </p>
+        <p>Fortæl lidt om dig selv, og hvad der gør dig unik.</p>
     </header>
 
     <div class="profile-card">
 
-        <EditForm EditContext="editContext"
-                  OnValidSubmit="HandleValidSubmit"
-                  OnInvalidSubmit="ClearStatus"
-                  FormName="my-profile">
+        @if (isLoading)
+        {
+            <p role="status">
+                Henter interesser og diagnoser...
+            </p>
+        }
+        else if (!string.IsNullOrEmpty(loadError))
+        {
+            <p role="alert" class="validation-message">
+                @loadError
+            </p>
 
-            <DataAnnotationsValidator />
+            <button type="button"
+                    class="btn btn-secondary"
+                    @onclick="LoadOptionsAsync">
+                Prøv igen
+            </button>
+        }
+        else
+        {
+            <EditForm EditContext="editContext"
+                      OnValidSubmit="HandleValidSubmit"
+                      OnInvalidSubmit="ClearStatus"
+                      FormName="my-profile">
 
-            <!-- PROFILBILLEDE -->
-            <div class="profile-field">
+                <DataAnnotationsValidator />
 
-                <label for="profile-image">
-                    Profilbillede
-                </label>
+                <!-- PROFILBILLEDE -->
+                <div class="profile-field">
+                    <label for="profile-image">
+                        Profilbillede
+                    </label>
 
-                <InputFile id="profile-image"
-                           OnChange="HandleImageSelected"
-                           accept="image/jpeg,image/png" />
+                    <InputFile id="profile-image"
+                               OnChange="HandleImageSelected"
+                               accept="image/jpeg,image/png" />
 
-                @if (!string.IsNullOrEmpty(imageError))
-                {
-                    <p role="alert" class="validation-message">
-                        @imageError
-                    </p>
-                }
+                    @if (!string.IsNullOrEmpty(imageError))
+                    {
+                        <p role="alert" class="validation-message">
+                            @imageError
+                        </p>
+                    }
 
-                @if (!string.IsNullOrEmpty(imagePreviewUrl))
-                {
-                    <img class="preview-image"
-                         src="@imagePreviewUrl"
-                         alt="Forhåndsvisning af profilbillede" />
-                }
+                    @if (!string.IsNullOrEmpty(imagePreviewUrl))
+                    {
+                        <img class="preview-image"
+                             src="@imagePreviewUrl"
+                             alt="Forhåndsvisning af profilbillede" />
+                    }
 
-                @if (!string.IsNullOrEmpty(selectedImageName))
-                {
-                    <p class="image-name">
-                        @selectedImageName
-                    </p>
-                }
+                    @if (!string.IsNullOrEmpty(selectedImageName))
+                    {
+                        <p class="image-name">@selectedImageName</p>
+                    }
 
-                <ValidationMessage
-                    For="@(() => form.ProfileImage)" />
+                    <ValidationMessage
+                        For="@(() => form.ProfileImage)" />
 
-                <small>JPEG eller PNG, maks. 2 MB.</small>
+                    <small>JPEG eller PNG, maks. 2 MB.</small>
+                </div>
 
-            </div>
+                <!-- PROFILNAVN -->
+                <div class="profile-field">
+                    <label for="display-name">Dit navn</label>
 
-            <!-- PROFILNAVN -->
-            <div class="profile-field">
-
-                <label for="display-name">
-                    Dit navn
-                </label>
-
-                <InputText id="display-name"
-                           @bind-Value="form.DisplayName"
-                           @bind-Value:after="ClearStatus" />
-
-                <ValidationMessage
-                    For="@(() => form.DisplayName)" />
-
-            </div>
-
-            <!-- PROFILTEKST -->
-            <div class="profile-field">
-
-                <label for="bio">
-                    Om dig
-                </label>
-
-                <InputTextArea id="bio"
-                               rows="5"
-                               @bind-Value="form.Bio"
+                    <InputText id="display-name"
+                               @bind-Value="form.DisplayName"
                                @bind-Value:after="ClearStatus" />
 
-                <ValidationMessage
-                    For="@(() => form.Bio)" />
-
-            </div>
-
-            <!-- INTERESSER -->
-            <fieldset class="profile-field">
-
-                <legend>Mine interesser</legend>
-
-                <p class="field-description">
-                    Vælg de interesser, der passer til dig.
-                </p>
-
-                <div class="profile-options">
-
-                    @foreach (var interest in interests)
-                    {
-                        <label class="profile-option"
-                               @key="interest">
-
-                            <input type="checkbox"
-                                   checked="@form.SelectedInterests.Contains(interest)"
-                                   @onchange="e => ToggleInterest(interest, e.Value is true)" />
-
-                            <span>@interest</span>
-
-                        </label>
-                    }
-
+                    <ValidationMessage
+                        For="@(() => form.DisplayName)" />
                 </div>
 
-            </fieldset>
+                <!-- PROFILTEKST -->
+                <div class="profile-field">
+                    <label for="bio">Om dig</label>
 
-            <!-- DIAGNOSER OG HANDICAP -->
-            <fieldset class="profile-field">
+                    <InputTextArea id="bio"
+                                   rows="5"
+                                   @bind-Value="form.Bio"
+                                   @bind-Value:after="ClearStatus" />
 
-                <legend>Diagnoser og handicap</legend>
-
-                <p class="field-description">
-                    Dette er frivilligt.
-                    Du behøver ikke vælge noget.
-                </p>
-
-                <div class="profile-options">
-
-                    @foreach (var condition in conditions)
-                    {
-                        <label class="profile-option"
-                               @key="condition">
-
-                            <input type="checkbox"
-                                   checked="@form.SelectedConditions.Contains(condition)"
-                                   @onchange="e => ToggleCondition(condition, e.Value is true)" />
-
-                            <span>@condition</span>
-
-                        </label>
-                    }
-
+                    <ValidationMessage
+                        For="@(() => form.Bio)" />
                 </div>
 
-            </fieldset>
+                <!-- INTERESSER FRA DATABASEN -->
+                <fieldset class="profile-field">
 
-            <!-- BRUGERDEFINERET DIAGNOSE -->
-            <div class="profile-field">
+                    <legend>Mine interesser</legend>
 
-                <label for="custom-condition">
-                    Andet (frivilligt)
-                </label>
+                    <p class="field-description">
+                        Vælg de interesser, der passer til dig.
+                    </p>
 
-                <InputText id="custom-condition"
-                           @bind-Value="form.CustomCondition"
-                           @bind-Value:after="ClearStatus"
-                           placeholder="Skriv en anden diagnose eller et handicap" />
+                    <div class="profile-options">
+                        @foreach (var interest in interests)
+                        {
+                            <label class="profile-option"
+                                   @key="interest.InterestID">
 
-                <small>
-                    En brugerdefineret værdi placeres
-                    i kategorien Andet.
-                </small>
+                                <input type="checkbox"
+                                       checked="@form.SelectedInterests.Contains(interest.Name)"
+                                       @onchange="e => ToggleInterest(interest.Name, e.Value is true)" />
 
-            </div>
+                                <span>@interest.Name</span>
+                            </label>
+                        }
+                    </div>
 
-            <!-- SUBMIT -->
-            <button type="submit"
-                    class="btn btn-primary">
-                Kontrollér oplysninger
-            </button>
+                </fieldset>
 
-        </EditForm>
+                <!-- DIAGNOSER FRA DATABASEN -->
+                <fieldset class="profile-field">
 
-        @if (!string.IsNullOrEmpty(statusMessage))
-        {
-            <p role="status" class="profile-status">
-                @statusMessage
-            </p>
+                    <legend>Diagnoser og handicap</legend>
+
+                    <p class="field-description">
+                        Frivilligt – du behøver ikke vælge noget.
+                    </p>
+
+                    <div class="profile-options">
+                        @foreach (var condition in conditions)
+                        {
+                            <label class="profile-option"
+                                   @key="condition.ID">
+
+                                <input type="checkbox"
+                                       checked="@form.SelectedConditions.Contains(condition.Name)"
+                                       @onchange="e => ToggleCondition(condition.Name, e.Value is true)" />
+
+                                <span>@condition.Name</span>
+                            </label>
+                        }
+                    </div>
+
+                </fieldset>
+
+                <!-- BRUGERDEFINERET DIAGNOSE -->
+                <div class="profile-field">
+
+                    <label for="custom-condition">
+                        Andet (frivilligt)
+                    </label>
+
+                    <InputText id="custom-condition"
+                               @bind-Value="form.CustomCondition"
+                               @bind-Value:after="ClearStatus"
+                               placeholder="Skriv en anden diagnose eller et handicap" />
+
+                    <small>
+                        Brugerdefinerede værdier hører til
+                        kategorien Andet.
+                    </small>
+                </div>
+
+                <!-- VALIDERING -->
+                <button type="submit" class="btn btn-primary">
+                    Kontrollér oplysninger
+                </button>
+
+            </EditForm>
+
+            @if (!string.IsNullOrEmpty(statusMessage))
+            {
+                <p role="status" class="profile-status">
+                    @statusMessage
+                </p>
+            }
         }
 
     </div>
@@ -195,13 +202,14 @@
 
 @code {
 
-    // Formularens data
-    private ProfileFormModel form = new();
+    // =====================================
+    // FORMULAR OG STATUS
+    // =====================================
 
-    // Blazor valideringskontekst
+    private readonly ProfileFormModel form = new();
+
     private EditContext editContext = default!;
 
-    // Statusbesked
     private string statusMessage = string.Empty;
 
     // Billedhåndtering
@@ -209,68 +217,116 @@
     private string imageError = string.Empty;
     private string selectedImageName = string.Empty;
 
-    // Midlertidige valgmuligheder.
-    // Senere hentes de fra backend.
-    private readonly List<string> interests = new()
-    {
-        "Gaming",
-        "Musik",
-        "Film og serier",
-        "Sport",
-        "Madlavning",
-        "Natur",
-        "Rejser",
-        "Dyr",
-        "Teknologi",
-        "Kunst"
-    };
+    // =====================================
+    // DATABASENS EKSISTERENDE MODELLER
+    // =====================================
 
-    private readonly List<string> conditions = new()
-    {
-        "ADHD",
-        "Autisme",
-        "Fysisk handicap",
-        "Ordblindhed"
-    };
+    private List<Interest> interests = new();
+    private List<Condition> conditions = new();
 
-    protected override void OnInitialized()
+    private bool isLoading = true;
+    private string loadError = string.Empty;
+
+    // =====================================
+    // INITIALISERING
+    // =====================================
+
+    protected override async Task OnInitializedAsync()
     {
         editContext = new EditContext(form);
+
+        await LoadOptionsAsync();
     }
 
-    // Brugeren vælger eller fjerner en interesse
-    private void ToggleInterest(string interest, bool selected)
+    // =====================================
+    // HENT VALGMULIGHEDER FRA SQLITE
+    // =====================================
+
+    private async Task LoadOptionsAsync()
+    {
+        isLoading = true;
+        loadError = string.Empty;
+
+        try
+        {
+            await using var db =
+                await DbFactory.CreateDbContextAsync();
+
+            interests = await db.Interests
+                .AsNoTracking()
+                .OrderBy(i => i.Name)
+                .ToListAsync();
+
+            conditions = await db.Conditions
+                .AsNoTracking()
+                .Where(c => !c.IsCustom)
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+        }
+        
+catch (Exception ex)
+{
+    interests.Clear();
+    conditions.Clear();
+
+    // Udskriv den faktiske fejl i serverterminalen.
+    Console.WriteLine("DATABASEFEJL I MYPROFILE:");
+    Console.WriteLine(ex.ToString());
+
+    // Vis en generel fejlbesked til brugeren.
+    loadError =
+        "Interesser og diagnoser kunne ikke indlæses. " +
+        "Se serverterminalen for detaljer.";
+}
+
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // =====================================
+    // VÆLG INTERESSER
+    // =====================================
+
+    private void ToggleInterest(string interestName, bool selected)
     {
         if (selected)
         {
-            if (!form.SelectedInterests.Contains(interest))
-                form.SelectedInterests.Add(interest);
+            if (!form.SelectedInterests.Contains(interestName))
+                form.SelectedInterests.Add(interestName);
         }
         else
         {
-            form.SelectedInterests.Remove(interest);
+            form.SelectedInterests.Remove(interestName);
         }
 
         ClearStatus();
     }
 
-    // Brugeren vælger eller fjerner en diagnose
-    private void ToggleCondition(string condition, bool selected)
+    // =====================================
+    // VÆLG DIAGNOSER
+    // =====================================
+
+    private void ToggleCondition(string conditionName, bool selected)
     {
         if (selected)
         {
-            if (!form.SelectedConditions.Contains(condition))
-                form.SelectedConditions.Add(condition);
+            if (!form.SelectedConditions.Contains(conditionName))
+                form.SelectedConditions.Add(conditionName);
         }
         else
         {
-            form.SelectedConditions.Remove(condition);
+            form.SelectedConditions.Remove(conditionName);
         }
 
         ClearStatus();
     }
 
-    // Formularen har bestået validering
+    // =====================================
+    // VALIDER FORMULAREN
+    // =====================================
+
     private void HandleValidSubmit()
     {
         if (!string.IsNullOrEmpty(imageError))
@@ -279,11 +335,19 @@
             return;
         }
 
-        // TODO: Kald backend-service for at gemme profilen.
+        // TODO:
+        // Backend mangler stadig en rigtig login-session,
+        // så vi kan finde den indloggede brugers ProfileID.
+        //
+        // Når den er tilgængelig, kan vi bruge de eksisterende
+        // UpdateProfileBasicsAsync og UpdateProfileAttributesAsync.
+        //
+        // De valgte interessenavne og diagnosenavne skal
+        // mappes til deres eksisterende database-ID'er.
 
         statusMessage =
-            "Profilen er valideret. " +
-            "Oplysningerne er endnu ikke gemt.";
+            "Oplysningerne er gyldige, " +
+            "men endnu ikke gemt i databasen.";
     }
 
     private void ClearStatus()
@@ -291,7 +355,10 @@
         statusMessage = string.Empty;
     }
 
-    // Billedhåndtering
+    // =====================================
+    // BILLEDUPLOAD OG FORHÅNDSVISNING
+    // =====================================
+
     private async Task HandleImageSelected(InputFileChangeEventArgs e)
     {
         ClearStatus();
@@ -329,7 +396,8 @@
 
             await stream.CopyToAsync(memory);
 
-            var base64 = Convert.ToBase64String(memory.ToArray());
+            var base64 = Convert.ToBase64String(
+                memory.ToArray());
 
             imagePreviewUrl =
                 $"data:{file.ContentType};base64,{base64}";
@@ -338,11 +406,14 @@
             form.ProfileImage = file;
 
             editContext.NotifyFieldChanged(
-                new FieldIdentifier(form, nameof(form.ProfileImage)));
+                new FieldIdentifier(
+                    form,
+                    nameof(form.ProfileImage)));
         }
         catch (IOException)
         {
-            imageError = "Billedet kunne ikke læses. Prøv igen.";
+            imageError =
+                "Billedet kunne ikke læses. Prøv igen.";
         }
     }
 }

@@ -1,21 +1,177 @@
 
 @page "/matches"
+@rendermode InteractiveServer
 
-<PageTitle>Matches – GLITCH</PageTitle>
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+
+@inject NavigationManager Navigation
+
+<PageTitle>Mine matches – GLITCH</PageTitle>
 
 <section class="matches-page">
-    <h1>Mine matches</h1>
 
-    <p>
-        Her kan du se de personer, du har matchet med,
-        og starte en samtale.
+    <header class="matches-header">
+        <h1>Mine matches ❤️</h1>
+        <p>Her finder du de personer, hvor interessen er gensidig.</p>
+    </header>
+
+    <div class="matches-summary">
+        <h2>Aktive matches</h2>
+        <span class="matches-count">@ActiveMatches.Count</span>
+    </div>
+
+    @if (ActiveMatches.Count > 0)
+    {
+        <div class="matches-grid">
+
+            @foreach (var match in ActiveMatches)
+            {
+                <article class="match-card" @key="match.MatchId">
+
+                    <div class="match-photo">
+                        @if (!string.IsNullOrEmpty(match.ImageUrl))
+                        {
+                            <img src="@match.ImageUrl"
+                                 alt="Profilbillede af @match.Name" />
+                        }
+                        else
+                        {
+                            <span aria-hidden="true">
+                                @match.Name.Substring(0, 1)
+                            </span>
+                        }
+                    </div>
+
+                    <div class="match-info">
+
+                        <h3>@match.Name, @match.Age</h3>
+
+                        <p class="match-bio">@match.Bio</p>
+
+                        <div class="match-interests">
+                            @foreach (var interest in match.Interests)
+                            {
+                                <span class="interest-tag" @key="interest">
+                                    @interest
+                                </span>
+                            }
+                        </div>
+
+                        <p class="match-date">
+                            Matchet: @match.MatchedAt.ToString("dd-MM-yyyy")
+                        </p>
+
+                    </div>
+
+                    <div class="match-actions">
+                        <button type="button"
+                                class="chat-button"
+                                @onclick="() => OpenChat(match.MatchId)">
+                            💬 Åbn chat
+                        </button>
+                    </div>
+
+                </article>
+            }
+
+        </div>
+    }
+    else
+    {
+        <div class="matches-empty">
+            <h2>Ingen matches endnu</h2>
+            <p>
+                Når du og en anden person liker hinanden,
+                vises jeres match her.
+            </p>
+
+            <button class="btn btn-primary"
+                    @onclick="GoToDiscover">
+                Find profiler
+            </button>
+        </div>
+    }
+
+    <p class="demo-notice">
+        Demovisning – matches er fiktive og hentes
+        endnu ikke fra databasen.
     </p>
 
-    <div class="empty-state">
-        <h2>Ingen matches endnu</h2>
-        <p>Find nogle spændende profiler under Opdag.</p>
-        <a href="/discover" class="btn btn-primary">
-            Find profiler
-        </a>
-    </div>
 </section>
+
+@code {
+
+    // Midlertidige frontend-data.
+    // Erstatter ikke de eksisterende backendmodeller.
+    private sealed record MatchViewModel(
+        int MatchId,
+        string Name,
+        int Age,
+        string Bio,
+        string? ImageUrl,
+        List<string> Interests,
+        DateTime MatchedAt,
+        bool IsActive
+    );
+
+    private readonly List<MatchViewModel> matches = new()
+    {
+        new(
+            1, "Emma", 25,
+            "Elsker gaming, musik og hyggelige aftener.",
+            null,
+            new() { "Gaming", "Musik" },
+            new DateTime(2026, 11, 5),
+            true
+        ),
+
+        new(
+            2, "Sofie", 24,
+            "Jeg elsker film, musik og gode samtaler.",
+            null,
+            new() { "Film og serier", "Musik" },
+            new DateTime(2026, 11, 6),
+            true
+        ),
+
+        new(
+            3, "Freja", 27,
+            "Kreativ sjæl, der elsker dyr og natur.",
+            null,
+            new() { "Dyr", "Natur" },
+            new DateTime(2026, 11, 7),
+            true
+        ),
+
+        // Inaktivt testmatch – skal ikke vises.
+        new(
+            4, "Oliver", 28,
+            "Holder af natur og madlavning.",
+            null,
+            new() { "Natur", "Madlavning" },
+            new DateTime(2026, 11, 4),
+            false
+        )
+    };
+
+    // Vis kun aktive matches, én gang hver.
+    private List<MatchViewModel> ActiveMatches =>
+        matches
+            .Where(m => m.IsActive)
+            .GroupBy(m => m.MatchId)
+            .Select(g => g.First())
+            .OrderByDescending(m => m.MatchedAt)
+            .ToList();
+
+    private void OpenChat(int matchId)
+    {
+        Navigation.NavigateTo($"/chat/{matchId}");
+    }
+
+    private void GoToDiscover()
+    {
+        Navigation.NavigateTo("/discover");
+    }
+}

@@ -1,83 +1,188 @@
 
 @page "/login"
-@rendermode InteractiveServer
+
+@using System.Security.Claims
 @using Glitch.ViewModels
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject LoginService LoginService
+@inject NavigationManager Navigation
 
 <PageTitle>Log ind – GLITCH</PageTitle>
 
 <section class="login-page">
-    <div class="login-card">
-        <h1>Velkommen tilbage</h1>
-        <p>Log ind for at fortsætte på Glitch.</p>
 
-        <EditForm Model="form"
-                  OnValidSubmit="HandleLogin"
+    <div class="login-card">
+
+        <header class="login-header">
+            <h1>Velkommen til GLITCH</h1>
+
+            <p class="login-subtitle">
+                Dating uden barrierer
+            </p>
+
+            <p>
+                Log ind for at finde nye matches.
+            </p>
+        </header>
+
+        <EditForm Model="@form"
+                  OnValidSubmit="HandleLoginAsync"
                   FormName="login">
+
             <DataAnnotationsValidator />
 
-            <div class="login-field">
-                <label for="email">Email</label>
+            <div class="login-fields">
 
-                <InputText id="email"
-                           type="email"
-                           @bind-Value="form.Email"
-                           autocomplete="email" />
+                <div class="form-group">
+                    <label for="login-email">Email</label>
 
-                <ValidationMessage For="@(() => form.Email)" />
+                    <InputText id="login-email"
+                               class="form-control"
+                               type="email"
+                               autocomplete="email"
+                               @bind-Value="form.Email" />
+
+                    <ValidationMessage
+                        For="@(() => form.Email)" />
+                </div>
+
+                <div class="form-group">
+                    <label for="login-password">
+                        Adgangskode
+                    </label>
+
+                    <InputText id="login-password"
+                               class="form-control"
+                               type="password"
+                               autocomplete="current-password"
+                               @bind-Value="form.Password" />
+
+                    <ValidationMessage
+                        For="@(() => form.Password)" />
+                </div>
+
+                <button type="submit"
+                        class="login-button">
+                    Log ind
+                </button>
+
             </div>
 
-            <div class="login-field">
-                <label for="password">Adgangskode</label>
-
-                <InputText id="password"
-                           type="password"
-                           @bind-Value="form.Password"
-                           autocomplete="current-password" />
-
-                <ValidationMessage For="@(() => form.Password)" />
-            </div>
-
-            <button class="btn btn-primary"
-                    type="submit"
-                    disabled="@isLoading">
-                @(isLoading ? "Logger ind..." : "Log ind")
-            </button>
         </EditForm>
 
-        @if (!string.IsNullOrEmpty(statusMessage))
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
         {
-            <p role="status">@statusMessage</p>
+            <div class="login-status login-error"
+                 role="alert">
+
+                @statusMessage
+
+            </div>
         }
 
-        <p class="register-link">
-            Har du ikke en konto?
-            <a href="/register">Opret dig her</a>
-        </p>
+        <div class="login-footer">
+            <p>Har du ikke en konto endnu?</p>
+
+            <a href="/register">
+                Opret en konto
+            </a>
+        </div>
+
     </div>
+
 </section>
 
 @code {
-    private LoginFormModel form = new();
-    private string statusMessage = string.Empty;
-    private bool isLoading = false;
 
-    private async Task HandleLogin()
+    // HTTP-konteksten er tilgængelig,
+    // fordi login-siden bruger statisk SSR.
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    // Binder formularens værdier ved HTTP POST.
+    [SupplyParameterFromForm(FormName = "login")]
+    private LoginFormModel form { get; set; } = new();
+
+    private string statusMessage = string.Empty;
+
+
+    private async Task HandleLoginAsync()
     {
-        isLoading = true;
         statusMessage = string.Empty;
 
-        try
+        if (HttpContext is null)
         {
-            // TODO: Her kobles backend-gruppens
-            // rigtige login-service på.
-            await Task.CompletedTask;
-
             statusMessage =
-                "Formularen er godkendt. Afventer backend-login.";
+                "Login kunne ikke gennemføres.";
+            return;
         }
-        finally
+
+        // Brug den eksisterende backendmetode.
+        var result = await LoginService.AuthenticateAsync(
+            form.Email.Trim(),
+            form.Password
+        );
+
+        if (!result.Success || result.UserProfile is null)
         {
-            isLoading = false;
+            statusMessage =
+                "Forkert email eller adgangskode.";
+            return;
         }
+
+        // Opret brugerens identitet.
+        var claims = new List<Claim>
+        {
+            // ID på brugeren i Users-tabellen
+            new Claim(
+                ClaimTypes.NameIdentifier,
+                result.UserProfile.UserID.ToString()
+            ),
+
+            // Email til visning på kontosiden
+            new Claim(
+                ClaimTypes.Email,
+                form.Email.Trim()
+            ),
+
+            // ID på brugerens profil
+            new Claim(
+                "ProfileID",
+                result.UserProfile.ProfileID.ToString()
+            ),
+
+            // Visningsnavn
+            new Claim(
+                ClaimTypes.Name,
+                result.UserProfile.DisplayName
+            )
+        };
+
+        var identity = new ClaimsIdentity(
+            claims,
+            CookieAuthenticationDefaults.AuthenticationScheme
+        );
+
+        var principal = new ClaimsPrincipal(identity);
+
+        // Opret den beskyttede login-cookie.
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            principal,
+            new AuthenticationProperties
+            {
+                IsPersistent = false
+            }
+        );
+
+        // Start en ny sideindlæsning, så Blazor
+        // får den nye loginstatus.
+        Navigation.NavigateTo(
+            "/discover",
+            forceLoad: true
+        );
     }
 }

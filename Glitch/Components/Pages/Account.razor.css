@@ -1,0 +1,311 @@
+
+/* ==========================================
+   GLITCH - KONTOINDSTILLINGER
+   ========================================== */
+
+/* SIDE */
+
+.account-page {
+    max-width: 850px;
+    margin: 0 auto;
+    padding: 24px 16px;
+}
+
+.account-header {
+    margin-bottom: 32px;
+}
+
+.account-header h1 {
+    margin-bottom: 10px;
+}
+
+.account-header p {
+    opacity: 0.8;
+}
+
+/* KONTOSEKTIONER */
+
+.account-card {
+    background: var(--color-surface, white);
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 16px;
+
+    padding: 24px;
+    margin-bottom: 24px;
+
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.account-card h2 {
+    font-size: 1.4rem;
+    margin: 0 0 10px;
+}
+
+.section-description {
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+/* KONTOOPLYSNINGER */
+
+.account-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.account-info-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+
+    padding: 16px 0;
+    border-bottom: 1px solid var(--color-border, #ddd);
+}
+
+.account-info-row:last-child {
+    border-bottom: none;
+}
+
+.info-label {
+    font-weight: 600;
+}
+
+.info-value {
+    text-align: right;
+    overflow-wrap: anywhere;
+    opacity: 0.8;
+}
+
+.account-note {
+    font-size: 0.85rem;
+    opacity: 0.75;
+    margin-top: 16px;
+}
+
+/* HANDLINGER */
+
+.account-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.account-action h3 {
+    margin: 0 0 8px;
+    font-size: 1.1rem;
+}
+
+.account-action p {
+    margin: 0;
+    opacity: 0.8;
+}
+
+/* KNAPPER */
+
+.account-button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+
+    min-height: 46px;
+    padding: 12px 20px;
+
+    border: 1px solid transparent;
+    border-radius: 12px;
+
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+
+    transition:
+        background-color 0.2s,
+        transform 0.2s;
+}
+
+.account-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.account-button:focus-visible {
+    outline: 3px solid var(--color-focus, #6495ed);
+    outline-offset: 3px;
+}
+
+.account-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* PRIMÆR KNAP */
+
+.primary-button {
+    background: #f3bfd9;
+    color: #343044;
+}
+
+.primary-button:hover:not(:disabled) {
+    background: #eaa9ca;
+}
+
+/* SEKUNDÆR KNAP */
+
+.secondary-button {
+    background: #edf0f5;
+    color: #343044;
+}
+
+.secondary-button:hover:not(:disabled) {
+    background: #dde3eb;
+}
+
+/* SLET KONTO */
+
+.danger-section {
+    border-color: #edc0c6;
+}
+
+.danger-section h2 {
+    color: #a4293c;
+}
+
+.danger-description {
+    color: #8c3140;
+    line-height: 1.6;
+}
+
+.danger-button {
+    background: #b83246;
+    color: white;
+}
+
+.danger-button:hover:not(:disabled) {
+    background: #962639;
+}
+
+/* DEMOBESKED */
+
+.account-demo-notice {
+    text-align: center;
+    opacity: 0.7;
+    font-size: 0.85rem;
+    margin: 24px 0;
+}
+
+/* ==========================================
+   SLETNINGS-DIALOG
+   ========================================== */
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    background: rgba(25, 22, 35, 0.65);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 16px;
+}
+
+.delete-modal {
+    width: 100%;
+    max-width: 480px;
+    max-height: 90dvh;
+    overflow-y: auto;
+
+    background: var(--color-surface, white);
+    color: var(--color-text, #343044);
+
+    border-radius: 20px;
+    padding: 28px;
+
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.delete-modal h2 {
+    margin: 0 0 16px;
+    color: #a4293c;
+}
+
+.delete-modal p {
+    line-height: 1.6;
+}
+
+.delete-warning {
+    padding: 14px;
+    background: #fff0f2;
+    color: #8c3140;
+    border-radius: 10px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+/* ==========================================
+   MOBIL
+   ========================================== */
+
+@media (max-width: 600px) {
+
+    .account-page {
+        padding: 16px 12px;
+    }
+
+    .account-header {
+        margin-bottom: 24px;
+    }
+
+    .account-card {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .account-info-row {
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .info-value {
+        text-align: left;
+    }
+
+    .account-action {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .account-action .account-button {
+        width: 100%;
+    }
+
+    .delete-modal {
+        padding: 20px;
+    }
+
+    .modal-actions {
+        flex-direction: column-reverse;
+    }
+
+    .modal-actions .account-button {
+        width: 100%;
+    }
+}
+
+/* REDUCER ANIMATION */
+
+@media (prefers-reduced-motion: reduce) {
+    .account-button {
+        transition: none;
+    }
+
+    .account-button:hover {
+        transform: none;
+    }
+}

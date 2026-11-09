@@ -1,15 +1,36 @@
 ﻿
 @page "/"
+
+@using Microsoft.AspNetCore.Components.Authorization
+
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>GLITCH</PageTitle>
 
-<h1>GLITCH</h1>
-<p>Du bliver sendt til login...</p>
+<p>Åbner GLITCH...</p>
 
 @code {
-    protected override void OnInitialized()
+
+    protected override async Task OnInitializedAsync()
     {
-        Navigation.NavigateTo("/login");
+        // Hent brugerens aktuelle loginstatus.
+        var authState =
+            await AuthenticationStateProvider
+                .GetAuthenticationStateAsync();
+
+        bool isLoggedIn =
+            authState.User.Identity?.IsAuthenticated == true;
+
+        if (isLoggedIn)
+        {
+            // Logget ind -> Opdag
+            Navigation.NavigateTo("/discover");
+        }
+        else
+        {
+            // Ikke logget ind -> Login
+            Navigation.NavigateTo("/login");
+        }
     }
 }

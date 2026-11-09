@@ -1,5 +1,244 @@
-@page "/Account"
 
-<PageTitle>Opdag – GLITCH</PageTitle>
+@page "/account"
+@rendermode InteractiveServer
 
-<h1>Opdag</h1>
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+
+@inject NavigationManager Navigation
+
+<PageTitle>Min konto – GLITCH</PageTitle>
+
+<section class="account-page">
+
+    <!-- OVERSKRIFT -->
+    <header class="account-header">
+        <h1>Min konto</h1>
+
+        <p>
+            Her kan du administrere din konto,
+            din profil og dine oplysninger.
+        </p>
+    </header>
+
+    <!-- KONTOOPLYSNINGER -->
+    <section class="account-card">
+
+        <h2>Kontooplysninger</h2>
+
+        <p class="section-description">
+            Oplysninger om din Glitch-konto.
+        </p>
+
+        <div class="account-info">
+
+            <div class="account-info-row">
+                <span class="info-label">Email</span>
+                <span class="info-value">
+                    Afventer loginintegration
+                </span>
+            </div>
+
+            <div class="account-info-row">
+                <span class="info-label">Kontostatus</span>
+                <span class="info-value">
+                    Ikke tilgængelig endnu
+                </span>
+            </div>
+
+        </div>
+
+        <p class="account-note">
+            Kontooplysninger bliver vist her, når
+            login og brugeridentifikation er tilsluttet.
+        </p>
+
+    </section>
+
+    <!-- PROFILINDSTILLINGER -->
+    <section class="account-card">
+
+        <h2>Min profil</h2>
+
+        <p class="section-description">
+            Du kan ændre dit profilbillede,
+            dit navn, din beskrivelse,
+            dine interesser og dine diagnoser.
+        </p>
+
+        <button type="button"
+                class="account-button primary-button"
+                @onclick="GoToProfile">
+
+            Rediger min profil
+        </button>
+
+    </section>
+
+    <!-- LOGIN OG SIKKERHED -->
+    <section class="account-card">
+
+        <h2>Login og sikkerhed</h2>
+
+        <p class="section-description">
+            Administrer din adgang til Glitch.
+        </p>
+
+        <div class="account-action">
+
+            <div>
+                <h3>Log ud</h3>
+
+                <p>
+                    Afslut din session på denne enhed.
+                </p>
+            </div>
+
+            <button type="button"
+                    class="account-button secondary-button"
+                    disabled
+                    title="Afventer backend-login">
+
+                Log ud
+            </button>
+
+        </div>
+
+        <p class="account-note">
+            Logout bliver aktiveret, når backend
+            understøtter autentificerede sessioner.
+        </p>
+
+    </section>
+
+    <!-- SLET KONTO -->
+    <section class="account-card danger-section">
+
+        <h2>Slet konto</h2>
+
+        <p class="section-description">
+            Hvis du ikke længere ønsker at bruge
+            Glitch, kan du anmode om at slette
+            din konto.
+        </p>
+
+        <p class="danger-description">
+            Når kontoen slettes, skal tilknyttede
+            personoplysninger, matches og beskeder
+            også håndteres efter kravspecifikationen.
+        </p>
+
+        <button type="button"
+                class="account-button danger-button"
+                @onclick="ShowDeleteConfirmation">
+
+            Slet min konto
+        </button>
+
+    </section>
+
+    <!-- DEMO STATUS -->
+    <p class="account-demo-notice">
+        Kontosiden er under integration.
+        Ingen kontoændringer udføres endnu.
+    </p>
+
+</section>
+
+<!-- BEKRÆFTELSE AF KONTO-SLETNING -->
+@if (showDeleteConfirmation)
+{
+    <div class="modal-overlay"
+         role="presentation">
+
+        <div class="delete-modal"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="delete-title"
+             aria-describedby="delete-description">
+
+            <h2 id="delete-title">
+                Vil du slette din konto?
+            </h2>
+
+            <p id="delete-description">
+                Denne handling vil være permanent,
+                når kontosletning bliver implementeret.
+            </p>
+
+            <p class="delete-warning">
+                Alle dine profiloplysninger, matches
+                og beskeder skal slettes i henhold
+                til kravspecifikationen.
+            </p>
+
+            <p class="account-note">
+                Dette er kun en demonstration.
+                Kontoen kan ikke slettes endnu.
+            </p>
+
+            <div class="modal-actions">
+
+                <button type="button"
+                        class="account-button secondary-button"
+                        @onclick="CancelDelete">
+
+                    Annuller
+                </button>
+
+                <button type="button"
+                        class="account-button danger-button"
+                        disabled>
+
+                    Bekræft sletning
+                </button>
+
+            </div>
+
+        </div>
+    </div>
+}
+
+@code {
+
+    // =====================================
+    // VISNING AF SLETNINGSBEKRÆFTELSE
+    // =====================================
+
+    private bool showDeleteConfirmation = false;
+
+    // =====================================
+    // NAVIGATION TIL PROFIL
+    // =====================================
+
+    private void GoToProfile()
+    {
+        Navigation.NavigateTo("/my-profile");
+    }
+
+    // =====================================
+    // SLET KONTO - FRONTEND
+    // =====================================
+
+    private void ShowDeleteConfirmation()
+    {
+        showDeleteConfirmation = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirmation = false;
+    }
+
+    // TODO:
+    // Når backend har implementeret kontosletning,
+    // forbindes bekræftelsen til den eksisterende
+    // backendfunktion.
+    //
+    // Der oprettes ikke en ny backendmetode her.
+
+    // TODO:
+    // Når login-sessioner er implementeret,
+    // forbindes Logout til backend.
+}

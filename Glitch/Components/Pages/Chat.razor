@@ -1,11 +1,247 @@
+
 @page "/chat/{MatchId:int}"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager Navigation
 
 <PageTitle>Chat – GLITCH</PageTitle>
 
-<h1>Chat</h1>
-<p>Du har åbnet chatten for match @MatchId.</p>
+<section class="chat-page">
+
+    <!-- TILBAGE TIL MATCHES -->
+    <button type="button"
+            class="back-button"
+            @onclick="GoBack">
+        ← Tilbage til matches
+    </button>
+
+    @if (!isValidDemoMatch)
+    {
+        <div class="chat-empty">
+            <h1>Samtalen blev ikke fundet</h1>
+            <p>
+                Der findes ingen demosamtale
+                med dette matchnummer.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="chat-container">
+
+            <!-- CHATHEADER -->
+            <header class="chat-header">
+
+                <div class="chat-avatar"
+                     aria-hidden="true">
+                    @matchName.Substring(0, 1)
+                </div>
+
+                <div class="chat-user">
+                    <h1>@matchName</h1>
+                    <p>Match #@MatchId</p>
+                </div>
+
+                <span class="chat-demo-badge">
+                    Demo
+                </span>
+
+            </header>
+
+            <!-- FORBINDELSESSTATUS -->
+            <div class="connection-status"
+                 role="status">
+
+                <span class="status-dot"></span>
+
+                Demo – ingen SignalR-forbindelse.
+                Beskeder gemmes kun midlertidigt.
+
+            </div>
+
+            <!-- BESKEDOMRÅDE -->
+            <div class="chat-messages"
+                 aria-label="Samtalebeskeder">
+
+                @foreach (var message in messages)
+                {
+                    <div class="message-row
+                                @(message.FromMe ? "mine" : "theirs")">
+
+                        <div class="message-bubble">
+
+                            <p>@message.Text</p>
+
+                            <time>
+                                @message.Time.ToString("HH:mm")
+                            </time>
+
+                        </div>
+
+                    </div>
+                }
+
+            </div>
+
+            <!-- BESKEDFELT -->
+            <div class="chat-composer">
+
+                <label for="message-input"
+                       class="message-label">
+                    Skriv en besked
+                </label>
+
+                <div class="composer-row">
+
+                    <textarea id="message-input"
+                              rows="2"
+                              maxlength="1000"
+                              placeholder="Skriv din besked..."
+                              @bind="newMessage"
+                              @bind:event="oninput">
+                    </textarea>
+
+                    <button type="button"
+                            class="send-button"
+                            disabled="@string.IsNullOrWhiteSpace(newMessage)"
+                            @onclick="SendMessage">
+                        Send
+                    </button>
+
+                </div>
+
+                @if (!string.IsNullOrEmpty(statusMessage))
+                {
+                    <p class="send-status"
+                       role="status">
+                        @statusMessage
+                    </p>
+                }
+
+            </div>
+
+        </div>
+    }
+
+</section>
 
 @code {
+
+    // Match-ID fra URL'en.
     [Parameter]
     public int MatchId { get; set; }
+
+    // Kun de matchnumre, som allerede
+    // findes i vores frontend-demodata.
+    private bool isValidDemoMatch;
+
+    private string matchName = string.Empty;
+    private string newMessage = string.Empty;
+    private string statusMessage = string.Empty;
+
+    // Midlertidige beskeder kun til visning.
+    // Vi opretter ingen database- eller backendmodel.
+    private List<(bool FromMe, string Text, DateTime Time)>
+        messages = new();
+
+    // Kører, når siden åbnes eller MatchId ændres.
+    protected override void OnParametersSet()
+    {
+        matchName = MatchId switch
+        {
+            1 => "Emma",
+            2 => "Sofie",
+            3 => "Freja",
+            _ => string.Empty
+        };
+
+        isValidDemoMatch =
+            !string.IsNullOrEmpty(matchName);
+
+        newMessage = string.Empty;
+        statusMessage = string.Empty;
+        messages.Clear();
+
+        if (!isValidDemoMatch)
+            return;
+
+        // Fiktiv beskedhistorik.
+        // Hver samtale får sit eget demoindhold.
+        var today = DateTime.Today;
+
+        if (MatchId == 1)
+        {
+            messages.Add((
+                false,
+                "Hej! Hyggeligt at vi matchede 😊",
+                today.AddHours(10)
+            ));
+
+            messages.Add((
+                true,
+                "Hej Emma! Ja, det synes jeg også.",
+                today.AddHours(10).AddMinutes(2)
+            ));
+
+            messages.Add((
+                false,
+                "Jeg kan se, du også elsker gaming!",
+                today.AddHours(10).AddMinutes(4)
+            ));
+        }
+        else if (MatchId == 2)
+        {
+            messages.Add((
+                false,
+                "Hej! Hvilke film kan du godt lide?",
+                today.AddHours(11)
+            ));
+        }
+        else if (MatchId == 3)
+        {
+            messages.Add((
+                false,
+                "Hej! Har du selv nogle kæledyr?",
+                today.AddHours(12)
+            ));
+        }
+    }
+
+    // Sender en besked lokalt i frontend.
+    private void SendMessage()
+    {
+        if (!isValidDemoMatch ||
+            string.IsNullOrWhiteSpace(newMessage))
+        {
+            return;
+        }
+
+        var text = newMessage.Trim();
+
+        messages.Add((
+            true,
+            text,
+            DateTime.Now
+        ));
+
+        newMessage = string.Empty;
+
+        statusMessage =
+            "Beskeden er tilføjet til demoen. " +
+            "Den er ikke sendt eller gemt.";
+
+        // Senere integreres eksisterende
+        // SignalR-funktionalitet her.
+    }
+
+    // Tilbage til matchoversigten.
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/matches");
+    }
 }

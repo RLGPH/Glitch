@@ -90,3 +90,53 @@
         padding: 8px;
     }
 }
+
+/* ==========================================
+   GLITCH - LOG UD
+   ========================================== */
+
+.logout-form {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+}
+
+.logout-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 44px;
+    padding: 10px 18px;
+
+    border: none;
+    border-radius: 12px;
+
+    background: #f3bfd9;
+    color: #343044;
+
+    font: inherit;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.logout-button:hover {
+    background: #eaa9ca;
+}
+
+.logout-button:focus-visible {
+    outline: 3px solid var(--color-focus, #6495ed);
+    outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+    .logout-form {
+        width: 100%;
+    }
+
+    .logout-button {
+        width: 100%;
+    }
+}

@@ -1,33 +1,84 @@
 ﻿
+@using Microsoft.AspNetCore.Components.Authorization
+
 <nav class="main-nav" aria-label="Hovedmenu">
-    <NavLink class="brand" href="/" Match="NavLinkMatch.All">
-        <span class="brand-name">GLITCH</span>
-        <span class="brand-slogan">Dating uden barrierer</span>
-    </NavLink>
 
+    <!-- LOGO -->
+    <AuthorizeView>
+        <Authorized>
+            <a class="brand" href="/discover">
+                <span class="brand-name">GLITCH</span>
+                <span class="brand-slogan">
+                    Dating uden barrierer
+                </span>
+            </a>
+        </Authorized>
+
+        <NotAuthorized>
+            <a class="brand" href="/login">
+                <span class="brand-name">GLITCH</span>
+                <span class="brand-slogan">
+                    Dating uden barrierer
+                </span>
+            </a>
+        </NotAuthorized>
+    </AuthorizeView>
+
+    <!-- NAVIGATION -->
     <div class="nav-links">
-        <NavLink href="/" Match="NavLinkMatch.All">
-            Forside
-        </NavLink>
 
-        <NavLink href="/discover">
-            Opdag
-        </NavLink>
+        <AuthorizeView>
 
-        <NavLink href="/matches">
-            Matches
-        </NavLink>
+            <Authorized Context="auth">
 
-        <NavLink href="/my-profile">
-            Min profil
-        </NavLink>
+                <!-- STARTSIDE EFTER LOGIN -->
+                <NavLink href="/discover">
+                    Opdag
+                </NavLink>
 
-        <NavLink href="/account">
-            Konto
-        </NavLink>
+                <!-- MATCHES -->
+                <NavLink href="/matches">
+                    Matches
+                </NavLink>
 
-        <NavLink href="/login" class="login-link">
-            Log ind
-        </NavLink>
+                <!-- KONTO -->
+                <NavLink href="/account">
+                    Konto
+                </NavLink>
+
+                <!-- LOG UD -->
+                <form method="post"
+                      action="/auth/logout"
+                      class="logout-form">
+
+                    <AntiforgeryToken />
+
+                    <button type="submit"
+                            class="logout-button">
+                        Log ud
+                    </button>
+
+                </form>
+
+            </Authorized>
+
+            <NotAuthorized>
+
+                <!-- LOGIN -->
+                <NavLink href="/login"
+                         class="login-link">
+                    Log ind
+                </NavLink>
+
+                <!-- REGISTRERING -->
+                <NavLink href="/register">
+                    Opret konto
+                </NavLink>
+
+            </NotAuthorized>
+
+        </AuthorizeView>
+
     </div>
+
 </nav>

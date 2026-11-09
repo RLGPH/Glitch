@@ -1,97 +1,310 @@
 
 @page "/register"
 @rendermode InteractiveServer
-@using Glitch.ViewModels
+
+@using System.ComponentModel.DataAnnotations
+@using Glitch.Data
+@using Glitch.Methods
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject IDbContextFactory<GlitchDbContext> DbFactory
+@inject NavigationManager Navigation
 
 <PageTitle>Opret konto – GLITCH</PageTitle>
 
 <section class="register-page">
-    <div class="register-card">
-        <h1>Bliv en del af Glitch</h1>
-        <p>Opret din konto og begynd at møde nye mennesker.</p>
 
-        <EditForm Model="form"
-                  OnValidSubmit="HandleRegister"
+    <div class="register-card">
+
+        <header class="register-header">
+            <h1>Bliv en del af GLITCH</h1>
+
+            <p class="register-subtitle">
+                Dating uden barrierer
+            </p>
+
+            <p>
+                Opret din konto for at begynde at finde matches.
+            </p>
+        </header>
+
+        <EditForm Model="@form"
+                  OnValidSubmit="HandleRegisterAsync"
                   FormName="register">
 
             <DataAnnotationsValidator />
 
-            <div class="register-field">
-                <label for="email">Email</label>
-                <InputText id="email"
-                           type="email"
-                           @bind-Value="form.Email"
-                           autocomplete="email" />
-                <ValidationMessage For="@(() => form.Email)" />
+            <div class="register-fields">
+
+                <!-- VISNINGSNAVN -->
+                <div class="form-group">
+                    <label for="register-name">
+                        Dit navn
+                    </label>
+
+                    <InputText id="register-name"
+                               class="form-control"
+                               autocomplete="nickname"
+                               maxlength="100"
+                               @bind-Value="form.DisplayName" />
+
+                    <ValidationMessage For="@(() => form.DisplayName)" />
+                </div>
+
+                <!-- EMAIL -->
+                <div class="form-group">
+                    <label for="register-email">
+                        Email
+                    </label>
+
+                    <InputText id="register-email"
+                               type="email"
+                               class="form-control"
+                               autocomplete="email"
+                               maxlength="320"
+                               @bind-Value="form.Email" />
+
+                    <ValidationMessage For="@(() => form.Email)" />
+                </div>
+
+                <!-- FØDSELSDATO -->
+                <div class="form-group">
+                    <label for="register-birthdate">
+                        Fødselsdato
+                    </label>
+
+                    <InputDate id="register-birthdate"
+                               class="form-control"
+                               @bind-Value="form.BirthDate" />
+
+                    <ValidationMessage For="@(() => form.BirthDate)" />
+
+                    <small>
+                        Du skal være mindst 18 år for at bruge GLITCH.
+                    </small>
+                </div>
+
+                <!-- ADGANGSKODE -->
+                <div class="form-group">
+                    <label for="register-password">
+                        Adgangskode
+                    </label>
+
+                    <InputText id="register-password"
+                               type="password"
+                               class="form-control"
+                               autocomplete="new-password"
+                               @bind-Value="form.Password" />
+
+                    <ValidationMessage For="@(() => form.Password)" />
+                </div>
+
+                <!-- BEKRÆFT ADGANGSKODE -->
+                <div class="form-group">
+                    <label for="register-confirm-password">
+                        Gentag adgangskode
+                    </label>
+
+                    <InputText id="register-confirm-password"
+                               type="password"
+                               class="form-control"
+                               autocomplete="new-password"
+                               @bind-Value="form.ConfirmPassword" />
+
+                    <ValidationMessage For="@(() => form.ConfirmPassword)" />
+                </div>
+
+                <!-- OPRET KONTO -->
+                <button type="submit"
+                        class="register-button"
+                        disabled="@isRegistering">
+
+                    @(isRegistering ? "Opretter konto..." : "Opret konto")
+                </button>
+
             </div>
 
-            <div class="register-field">
-                <label for="birthdate">Fødselsdato</label>
-                <InputDate id="birthdate"
-                           @bind-Value="form.BirthDate" />
-                <ValidationMessage For="@(() => form.BirthDate)" />
-            </div>
-
-            <div class="register-field">
-                <label for="password">Adgangskode</label>
-                <InputText id="password"
-                           type="password"
-                           @bind-Value="form.Password"
-                           autocomplete="new-password" />
-                <ValidationMessage For="@(() => form.Password)" />
-            </div>
-
-            <div class="register-field">
-                <label for="confirm-password">Gentag adgangskode</label>
-                <InputText id="confirm-password"
-                           type="password"
-                           @bind-Value="form.ConfirmPassword"
-                           autocomplete="new-password" />
-                <ValidationMessage For="@(() => form.ConfirmPassword)" />
-            </div>
-
-            <button type="submit"
-                    class="btn btn-primary"
-                    disabled="@isLoading">
-                @(isLoading ? "Arbejder..." : "Opret konto")
-            </button>
         </EditForm>
 
-        @if (!string.IsNullOrEmpty(statusMessage))
+        <!-- FEJLBESKED -->
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
         {
-            <p role="status">@statusMessage</p>
+            <div class="register-status"
+                 role="alert">
+
+                @statusMessage
+
+            </div>
         }
 
-        <p class="login-link">
-            Har du allerede en konto?
-            <a href="/login">Log ind</a>
-        </p>
+        <div class="register-footer">
+            <p>Har du allerede en konto?</p>
+            <a href="/login">Log ind her</a>
+        </div>
+
     </div>
+
 </section>
 
 @code {
-    private RegisterUserFormModel form = new();
-    private bool isLoading;
+
+    // Formularens data.
+    // Dette er kun en frontend-formularmodel,
+    // ikke en ny database- eller backendmodel.
+    private RegisterInput form = new();
+
+    private bool isRegistering = false;
+
     private string statusMessage = string.Empty;
 
-    private async Task HandleRegister()
+
+    // =========================================
+    // OPRET BRUGER I DATABASEN
+    // =========================================
+
+    private async Task HandleRegisterAsync()
     {
-        isLoading = true;
+        if (isRegistering)
+        {
+            return;
+        }
+
+        isRegistering = true;
         statusMessage = string.Empty;
 
         try
         {
-            // TODO: Kalder backend-gruppens
-            // registreringsservice, når den er klar.
-            await Task.CompletedTask;
+            string email = form.Email.Trim();
+            string displayName = form.DisplayName.Trim();
+
+            // Opret en DbContext til denne handling.
+            await using var db =
+                await DbFactory.CreateDbContextAsync();
+
+            // Midlertidig ekstra kontrol.
+            // Backendens Verify.IsValidEmail()
+            // kontrollerer endnu ikke databasen korrekt.
+            bool emailExists = await db.Users
+                .AsNoTracking()
+                .AnyAsync(u => u.Email == email);
+
+            if (emailExists)
+            {
+                statusMessage =
+                    "Denne email er allerede registreret.";
+
+                return;
+            }
+
+            // Brug den eksisterende backendklasse.
+            var accountCreation = new AccountCreation(db);
+
+            var result =
+                await accountCreation.RegisterNewUserAsync(
+                    email,
+                    form.Password,
+                    form.BirthDate!.Value,
+                    displayName
+                );
+
+            if (!result.Success)
+            {
+                // Backendens resultat indeholder også
+                // interne databasefejl ved exception.
+                // Vis derfor en generisk fejl til brugeren.
+                statusMessage =
+                    "Kontoen kunne ikke oprettes. " +
+                    "Kontrollér oplysningerne og prøv igen.";
+
+                Console.Error.WriteLine(
+                    $"Registrering mislykkedes: {result.Message}"
+                );
+
+                return;
+            }
+
+            // Brugeren og profilen er nu oprettet.
+            // Vi opretter ikke en falsk login-session.
+            Navigation.NavigateTo("/login");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(
+                $"Fejl under registrering: {ex}"
+            );
 
             statusMessage =
-                "Oplysningerne er gyldige. " +
-                "Kontoen er endnu ikke oprettet.";
+                "Der opstod en fejl under registreringen. " +
+                "Prøv igen.";
         }
         finally
         {
-            isLoading = false;
+            isRegistering = false;
+        }
+    }
+
+
+    // =========================================
+    // FRONTENDVALIDERING
+    // =========================================
+
+    private sealed class RegisterInput : IValidatableObject
+    {
+        [Required(ErrorMessage = "Indtast dit navn.")]
+        [StringLength(100, ErrorMessage = "Navnet må højst være 100 tegn.")]
+        public string DisplayName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Indtast din email.")]
+        [EmailAddress(ErrorMessage = "Indtast en gyldig email.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Vælg din fødselsdato.")]
+        public DateTime? BirthDate { get; set; }
+
+        [Required(ErrorMessage = "Indtast en adgangskode.")]
+        public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Gentag din adgangskode.")]
+        [Compare(
+            nameof(Password),
+            ErrorMessage = "Adgangskoderne er ikke ens."
+        )]
+        public string ConfirmPassword { get; set; } = string.Empty;
+
+        public IEnumerable<ValidationResult> Validate(
+            ValidationContext validationContext)
+        {
+            if (string.IsNullOrWhiteSpace(DisplayName))
+            {
+                yield return new ValidationResult(
+                    "Indtast dit navn.",
+                    new[] { nameof(DisplayName) }
+                );
+            }
+
+            if (BirthDate.HasValue)
+            {
+                DateTime today = DateTime.Today;
+
+                if (BirthDate.Value.Date > today)
+                {
+                    yield return new ValidationResult(
+                        "Fødselsdatoen kan ikke ligge i fremtiden.",
+                        new[] { nameof(BirthDate) }
+                    );
+                }
+                else if (
+                    BirthDate.Value.Date >
+                    today.AddYears(-18)
+                )
+                {
+                    yield return new ValidationResult(
+                        "Du skal være mindst 18 år for at bruge GLITCH.",
+                        new[] { nameof(BirthDate) }
+                    );
+                }
+            }
         }
     }
 }

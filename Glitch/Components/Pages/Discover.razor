@@ -2,6 +2,11 @@
 @page "/discover"
 @rendermode InteractiveServer
 
+
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.JSInterop
 @implements IAsyncDisposable
