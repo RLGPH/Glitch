@@ -1,5 +1,628 @@
+
 @page "/discover"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JS
 
 <PageTitle>Opdag – GLITCH</PageTitle>
 
-<h1>Opdag</h1>
+<section class="discover-page">
+
+    <header class="discover-header">
+        <h1>Opdag nye mennesker</h1>
+        <p>Find mennesker med fælles interesser og værdier.</p>
+    </header>
+
+    <!-- FILTRE -->
+    <div class="filter-card">
+        <div class="filter-header">
+            <h2>Filtrér profiler</h2>
+
+            <button type="button"
+                    class="btn btn-secondary"
+                    @onclick="ClearFilters"
+                    disabled="@isAnimating">
+                Ryd filtre
+            </button>
+        </div>
+
+        <fieldset class="filter-group" disabled="@isAnimating">
+            <legend>Interesser</legend>
+
+            <div class="filter-options">
+                @foreach (var interest in interestOptions)
+                {
+                    <label class="filter-option" @key="interest">
+                        <input type="checkbox"
+                               checked="@selectedInterests.Contains(interest)"
+                               @onchange="e => ToggleInterest(interest, e.Value is true)" />
+                        <span>@interest</span>
+                    </label>
+                }
+            </div>
+        </fieldset>
+
+        <fieldset class="filter-group" disabled="@isAnimating">
+            <legend>Diagnoser og handicap</legend>
+
+            <p class="filter-description">
+                Frivilligt filter. Du kan sagtens finde
+                profiler uden at vælge en diagnose.
+            </p>
+
+            <div class="filter-options">
+                @foreach (var condition in conditionOptions)
+                {
+                    <label class="filter-option" @key="condition">
+                        <input type="checkbox"
+                               checked="@selectedConditions.Contains(condition)"
+                               @onchange="e => ToggleCondition(condition, e.Value is true)" />
+                        <span>@condition</span>
+                    </label>
+                }
+            </div>
+        </fieldset>
+
+        <p class="filter-description">
+            Profiler skal opfylde alle valgte kriterier (OG).
+        </p>
+    </div>
+
+    <!-- PROFILKORT -->
+    @if (CurrentProfile is not null)
+    {
+        var profile = CurrentProfile;
+
+        <article class="discover-card"
+                 @key="profile.Id"
+                 style="@SwipeStyle">
+
+            <!-- Det område brugeren kan trække i -->
+            <div class="swipe-surface"
+                 @ref="swipeSurface"
+                 @onpointerdown="HandlePointerDown"
+                 @onpointermove="HandlePointerMove"
+                 @onpointerup="HandlePointerUp"
+                 @onpointercancel="HandlePointerCancel">
+
+                <div class="profile-photo">
+                    <span aria-hidden="true">
+                        @profile.Name.Substring(0, 1)
+                    </span>
+                </div>
+
+                <div class="profile-info">
+                    <h2>@profile.Name, @profile.Age</h2>
+
+                    <p class="profile-bio">@profile.Bio</p>
+
+                    <h3>Interesser</h3>
+
+                    <div class="profile-tags">
+                        @foreach (var interest in profile.Interests)
+                        {
+                            <span class="profile-tag" @key="interest">
+                                @interest
+                            </span>
+                        }
+                    </div>
+
+                    @if (profile.Conditions.Count > 0)
+                    {
+                        <h3>Diagnoser og handicap</h3>
+
+                        <div class="profile-tags">
+                            @foreach (var condition in profile.Conditions)
+                            {
+                                <span class="profile-tag" @key="condition">
+                                    @condition
+                                </span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- LIKE/NEJ TAK vises under træk -->
+            @if (isDragging && Math.Abs(dragX) > 20)
+            {
+                <div class="swipe-indicator
+                     @(dragX > 0 ? "indicator-like" : "indicator-nope")">
+                    @(dragX > 0 ? "LIKE ♥" : "NEJ TAK ✕")
+                </div>
+            }
+
+            <!-- Knapperne virker også uden swipe -->
+            <div class="discover-actions">
+                <button type="button"
+                        class="reject-button"
+                        disabled="@isAnimating"
+                        @onclick="() => AnimateSwipe(false)">
+                    ✕ Nej tak
+                </button>
+
+                <button type="button"
+                        class="like-button"
+                        disabled="@isAnimating"
+                        @onclick="() => AnimateSwipe(true)">
+                    ♥ Like
+                </button>
+            </div>
+        </article>
+    }
+    else
+    {
+        <!-- ALLE PROFILER ER GENNEMGÅET -->
+        <div class="empty-state">
+            <h2>Du har set alle profiler for nu!</h2>
+
+            <p>
+                Du kan starte en ny visningsrunde
+                eller udvide dine filtre.
+            </p>
+
+            <div class="empty-actions">
+                <button type="button"
+                        class="btn btn-primary"
+                        @onclick="RestartDiscovery">
+                    Start forfra
+                </button>
+
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="ExpandFilters">
+                    Udvid filtre
+                </button>
+            </div>
+
+            @if (EligibleProfiles.Count == 0)
+            {
+                <p class="filter-description">
+                    Ingen profiler opfylder lige nu
+                    dine filtre og de gældende udelukkelser.
+                </p>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <p class="discover-status" role="status">
+            @statusMessage
+        </p>
+    }
+
+</section>
+
+@code {
+
+    // =====================================
+    // TESTMODELLER
+    // =====================================
+
+    // Disse profiler erstattes senere med backend-data.
+    private sealed record DiscoverProfile(
+        int Id,
+        string Name,
+        int Age,
+        string Bio,
+        List<string> Interests,
+        List<string> Conditions,
+        bool HasActiveMatch = false
+    );
+
+    // Gemmer seneste Like eller Nej tak.
+    private sealed record SwipeDecision(
+        bool IsLike,
+        DateTimeOffset ChangedAt
+    );
+
+    // =====================================
+    // FIKTIVE PROFILER
+    // =====================================
+
+    private readonly List<DiscoverProfile> profiles = new()
+    {
+        new(
+            1, "Emma", 25,
+            "Jeg elsker gaming, musik og hyggelige aftener.",
+            new() { "Gaming", "Musik" },
+            new() { "ADHD" }
+        ),
+        new(
+            2, "Oliver", 28,
+            "Jeg holder af natur, madlavning og rejser.",
+            new() { "Natur", "Madlavning", "Rejser" },
+            new() { "Autisme" }
+        ),
+        new(
+            3, "Sofie", 24,
+            "Film, musik og gaming er lige mig.",
+            new() { "Film og serier", "Musik", "Gaming" },
+            new()
+        ),
+        new(
+            4, "Lucas", 30,
+            "Jeg elsker sport, rejser og nye mennesker.",
+            new() { "Sport", "Rejser" },
+            new() { "Fysisk handicap" }
+        ),
+        new(
+            5, "Freja", 27,
+            "Kreativ sjæl, der elsker dyr og musik.",
+            new() { "Dyr", "Musik" },
+            new() { "ADHD", "Autisme" }
+        ),
+        new(
+            6, "Noah", 26,
+            "Gaming og teknologi er mine interesser.",
+            new() { "Gaming", "Teknologi" },
+            new(),
+            HasActiveMatch: true
+        )
+    };
+
+    // =====================================
+    // FILTRE
+    // =====================================
+
+    private readonly List<string> interestOptions = new()
+    {
+        "Gaming", "Musik", "Film og serier",
+        "Sport", "Madlavning", "Natur",
+        "Rejser", "Dyr", "Teknologi"
+    };
+
+    private readonly List<string> conditionOptions = new()
+    {
+        "ADHD", "Autisme", "Fysisk handicap",
+        "Ordblindhed"
+    };
+
+    private readonly HashSet<string> selectedInterests = new();
+    private readonly HashSet<string> selectedConditions = new();
+
+    // Allerede viste profiler i denne runde.
+    private readonly HashSet<int> viewedProfileIds = new();
+
+    // Seneste beslutning for hver profil.
+    private readonly Dictionary<int, SwipeDecision> decisions = new();
+
+    private string statusMessage = string.Empty;
+
+    // =====================================
+    // FILTRERING MED OG-LOGIK
+    // =====================================
+
+    private List<DiscoverProfile> EligibleProfiles
+    {
+        get
+        {
+            var now = DateTimeOffset.UtcNow;
+
+            return profiles
+                // Aktive matches må ikke vises.
+                .Where(p => !p.HasActiveMatch)
+
+                // Nej tak giver syv døgns pause.
+                .Where(p =>
+                    !decisions.TryGetValue(p.Id, out var decision)
+                    || decision.IsLike
+                    || now >= decision.ChangedAt.AddDays(7))
+
+                // Alle valgte interesser skal opfyldes.
+                .Where(p => selectedInterests.All(
+                    i => p.Interests.Contains(i)))
+
+                // Alle valgte diagnoser skal opfyldes.
+                .Where(p => selectedConditions.All(
+                    c => p.Conditions.Contains(c)))
+
+                .ToList();
+        }
+    }
+
+    private DiscoverProfile? CurrentProfile =>
+        EligibleProfiles.FirstOrDefault(
+            p => !viewedProfileIds.Contains(p.Id));
+
+    private void ToggleInterest(string interest, bool selected)
+    {
+        if (selected)
+            selectedInterests.Add(interest);
+        else
+            selectedInterests.Remove(interest);
+
+        statusMessage = string.Empty;
+    }
+
+    private void ToggleCondition(string condition, bool selected)
+    {
+        if (selected)
+            selectedConditions.Add(condition);
+        else
+            selectedConditions.Remove(condition);
+
+        statusMessage = string.Empty;
+    }
+
+    private void ClearFilters()
+    {
+        selectedInterests.Clear();
+        selectedConditions.Clear();
+
+        statusMessage = "Filtrene er ryddet.";
+    }
+
+    // =====================================
+    // LIKE / NEJ TAK
+    // =====================================
+
+    private void LikeProfile(int profileId)
+    {
+        var profile = profiles.FirstOrDefault(p => p.Id == profileId);
+
+        if (profile is null)
+            return;
+
+        decisions[profile.Id] = new SwipeDecision(
+            true,
+            DateTimeOffset.UtcNow
+        );
+
+        viewedProfileIds.Add(profile.Id);
+
+        statusMessage = $"Du har liket {profile.Name}.";
+
+        // TODO: Gem valg gennem backend-service.
+        // Backend kontrollerer gensidige Likes.
+    }
+
+    private void RejectProfile(int profileId)
+    {
+        var profile = profiles.FirstOrDefault(p => p.Id == profileId);
+
+        if (profile is null)
+            return;
+
+        // Nej tak erstatter eventuelt tidligere Like.
+        decisions[profile.Id] = new SwipeDecision(
+            false,
+            DateTimeOffset.UtcNow
+        );
+
+        viewedProfileIds.Add(profile.Id);
+
+        statusMessage = $"{profile.Name} skjules i syv dage.";
+
+        // TODO: Gem seneste valg og tidspunkt i backend.
+    }
+
+    private void RestartDiscovery()
+    {
+        // Nulstiller kun den aktuelle visningsrunde.
+        viewedProfileIds.Clear();
+
+        statusMessage = "Ny visningsrunde startet.";
+    }
+
+    private void ExpandFilters()
+    {
+        // Fjern filtrene, men bevar viste profiler,
+        // tidligere valg og syvdagespauser.
+        selectedInterests.Clear();
+        selectedConditions.Clear();
+
+        statusMessage = "Filtrene er udvidet.";
+    }
+
+    // =====================================
+    // SWIPE MED MUS OG TOUCH
+    // =====================================
+
+    private ElementReference swipeSurface;
+    private IJSObjectReference? swipeModule;
+
+    private double startX;
+    private double startY;
+    private double dragX;
+    private double dragY;
+
+    private long activePointerId;
+
+    private bool isDragging;
+    private bool isAnimating;
+    private bool useTransition;
+
+    // Minimum vandret bevægelse for at swipe.
+    private const double SwipeThreshold = 80;
+
+    // Kortet roterer lidt, når det trækkes.
+    private double Rotation => Math.Clamp(dragX / 20, -25, 25);
+
+    // Dynamisk CSS på profilkortet.
+    private string SwipeStyle =>
+        $"transform: translate({dragX.ToString(System.Globalization.CultureInfo.InvariantCulture)}px, " +
+        $"{dragY.ToString(System.Globalization.CultureInfo.InvariantCulture)}px) " +
+        $"rotate({Rotation.ToString(System.Globalization.CultureInfo.InvariantCulture)}deg);" +
+        $"transition: {(useTransition ? "transform 0.22s ease-out" : "none")};";
+
+    // Indlæs JavaScript til pointer capture.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            swipeModule = await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./js/discoverSwipe.js");
+        }
+    }
+
+    // Når brugeren trykker ned på kortet.
+    private async Task HandlePointerDown(PointerEventArgs e)
+    {
+        if (isDragging || isAnimating)
+            return;
+
+        // Kun venstre museknap accepteres.
+        if (e.PointerType == "mouse" && e.Button != 0)
+            return;
+
+        startX = e.ClientX;
+        startY = e.ClientY;
+
+        activePointerId = e.PointerId;
+
+        dragX = 0;
+        dragY = 0;
+
+        isDragging = true;
+        useTransition = false;
+
+        // Pointer capture gør, at musen må
+        // bevæge sig uden for selve kortet.
+        if (swipeModule is not null)
+        {
+            try
+            {
+                await swipeModule.InvokeVoidAsync(
+                    "capturePointer",
+                    swipeSurface,
+                    activePointerId);
+            }
+            catch (JSException)
+            {
+                // Træk kan stadig forsøges uden capture.
+            }
+        }
+    }
+
+    // Flyt kortet sammen med mus/finger.
+    private void HandlePointerMove(PointerEventArgs e)
+    {
+        if (!isDragging || e.PointerId != activePointerId)
+            return;
+
+        dragX = e.ClientX - startX;
+        dragY = Math.Clamp(e.ClientY - startY, -40, 40);
+    }
+
+    // Når brugeren slipper kortet.
+    private async Task HandlePointerUp(PointerEventArgs e)
+    {
+        if (!isDragging || e.PointerId != activePointerId)
+            return;
+
+        isDragging = false;
+
+        double distanceX = e.ClientX - startX;
+        double distanceY = e.ClientY - startY;
+
+        dragX = distanceX;
+
+        // Lodret scrolling skal ikke registreres.
+        if (Math.Abs(distanceX) <= Math.Abs(distanceY))
+        {
+            await ResetCard();
+            return;
+        }
+
+        // Højre = Like.
+        if (distanceX >= SwipeThreshold)
+        {
+            await AnimateSwipe(true);
+        }
+        // Venstre = Nej tak.
+        else if (distanceX <= -SwipeThreshold)
+        {
+            await AnimateSwipe(false);
+        }
+        // For kort bevægelse.
+        else
+        {
+            await ResetCard();
+        }
+    }
+
+    private async Task HandlePointerCancel(PointerEventArgs e)
+    {
+        if (!isDragging || e.PointerId != activePointerId)
+            return;
+
+        isDragging = false;
+        await ResetCard();
+    }
+
+    // =====================================
+    // ANIMATIONER
+    // =====================================
+
+    private async Task AnimateSwipe(bool liked)
+    {
+        if (isAnimating || CurrentProfile is null)
+            return;
+
+        // Gem ID før næste profil vises.
+        int profileId = CurrentProfile.Id;
+
+        isAnimating = true;
+        isDragging = false;
+        useTransition = true;
+
+        // Flyt kortet ud af skærmen.
+        dragX = liked ? 1000 : -1000;
+        dragY = 30;
+
+        StateHasChanged();
+
+        await Task.Delay(240);
+
+        // Gem selve valget efter animationen.
+        if (liked)
+            LikeProfile(profileId);
+        else
+            RejectProfile(profileId);
+
+        // Nulstil placeringen til næste profil.
+        dragX = 0;
+        dragY = 0;
+
+        useTransition = false;
+        isAnimating = false;
+    }
+
+    private async Task ResetCard()
+    {
+        useTransition = true;
+
+        dragX = 0;
+        dragY = 0;
+
+        StateHasChanged();
+
+        await Task.Delay(240);
+
+        useTransition = false;
+    }
+
+    // =====================================
+    // OPRYDNING
+    // =====================================
+
+    public async ValueTask DisposeAsync()
+    {
+        if (swipeModule is not null)
+        {
+            try
+            {
+                await swipeModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // Forbindelsen er allerede lukket.
+            }
+        }
+    }
+}

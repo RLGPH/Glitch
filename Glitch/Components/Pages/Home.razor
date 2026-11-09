@@ -1,7 +1,15 @@
-﻿@page "/"
+﻿
+@page "/"
+@inject NavigationManager Navigation
 
 <PageTitle>GLITCH</PageTitle>
 
-<h1>Lad ikke kørestolen eller din skæve hjenrne holde dig tilbage</h1>
+<h1>GLITCH</h1>
+<p>Du bliver sendt til login...</p>
 
-GLITCH er til dig som ikke ser begrænsninger eller udfordringer, men som ønsker noget anderledes spænding og romantik. Her er plads til hvem end du er.
+@code {
+    protected override void OnInitialized()
+    {
+        Navigation.NavigateTo("/login");
+    }
+}

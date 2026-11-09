@@ -1,10 +1,16 @@
+
 .profile-page {
     max-width: 720px;
     margin: 0 auto;
+    padding: 24px 16px;
 }
 
 .profile-header {
     margin-bottom: 24px;
+}
+
+.profile-header h1 {
+    margin-bottom: 8px;
 }
 
 .profile-card {
@@ -18,17 +24,33 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
 }
 
 .profile-field + .profile-field {
     margin-top: 24px;
 }
 
-.profile-field label {
+.profile-field label,
+.profile-field legend {
     font-weight: 600;
 }
 
-.profile-field ::deep input,
+.profile-field legend {
+    margin-bottom: 8px;
+}
+
+.field-description {
+    margin: 0 0 12px;
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+/* Tekstfelter */
+.profile-field ::deep input:not([type="checkbox"]):not([type="file"]),
 .profile-field ::deep textarea {
     width: 100%;
     box-sizing: border-box;
@@ -50,13 +72,82 @@
     outline-offset: 2px;
 }
 
-.profile-card ::deep button[type="submit"] {
-    margin-top: 24px;
+/* Interesser og diagnoser */
+.profile-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
 }
 
+.profile-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.profile-option:hover {
+    background-color: var(--color-background);
+}
+
+.profile-option input {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    accent-color: #b7528c;
+}
+
+.profile-option span {
+    overflow-wrap: anywhere;
+}
+
+/* Profilbillede */
 .preview-image {
     display: block;
-    max-width: 100%;
     width: 200px;
+    max-width: 100%;
     height: auto;
+    border-radius: 12px;
+    object-fit: cover;
+}
+
+.image-name {
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+}
+
+/* Validering og status */
+.profile-card ::deep .validation-message {
+    color: #b42318;
+}
+
+.profile-status {
+    margin-top: 20px;
+    padding: 12px;
+    border-radius: 8px;
+    background-color: var(--color-background);
+}
+
+/* Knap */
+.profile-card .btn {
+    margin-top: 24px;
+    min-height: 44px;
+}
+
+/* Mobil */
+@media (max-width: 480px) {
+    .profile-card {
+        padding: 16px;
+    }
+
+    .profile-options {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-card .btn {
+        width: 100%;
+    }
 }

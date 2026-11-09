@@ -1,0 +1,97 @@
+
+@page "/register"
+@rendermode InteractiveServer
+@using Glitch.ViewModels
+
+<PageTitle>Opret konto – GLITCH</PageTitle>
+
+<section class="register-page">
+    <div class="register-card">
+        <h1>Bliv en del af Glitch</h1>
+        <p>Opret din konto og begynd at møde nye mennesker.</p>
+
+        <EditForm Model="form"
+                  OnValidSubmit="HandleRegister"
+                  FormName="register">
+
+            <DataAnnotationsValidator />
+
+            <div class="register-field">
+                <label for="email">Email</label>
+                <InputText id="email"
+                           type="email"
+                           @bind-Value="form.Email"
+                           autocomplete="email" />
+                <ValidationMessage For="@(() => form.Email)" />
+            </div>
+
+            <div class="register-field">
+                <label for="birthdate">Fødselsdato</label>
+                <InputDate id="birthdate"
+                           @bind-Value="form.BirthDate" />
+                <ValidationMessage For="@(() => form.BirthDate)" />
+            </div>
+
+            <div class="register-field">
+                <label for="password">Adgangskode</label>
+                <InputText id="password"
+                           type="password"
+                           @bind-Value="form.Password"
+                           autocomplete="new-password" />
+                <ValidationMessage For="@(() => form.Password)" />
+            </div>
+
+            <div class="register-field">
+                <label for="confirm-password">Gentag adgangskode</label>
+                <InputText id="confirm-password"
+                           type="password"
+                           @bind-Value="form.ConfirmPassword"
+                           autocomplete="new-password" />
+                <ValidationMessage For="@(() => form.ConfirmPassword)" />
+            </div>
+
+            <button type="submit"
+                    class="btn btn-primary"
+                    disabled="@isLoading">
+                @(isLoading ? "Arbejder..." : "Opret konto")
+            </button>
+        </EditForm>
+
+        @if (!string.IsNullOrEmpty(statusMessage))
+        {
+            <p role="status">@statusMessage</p>
+        }
+
+        <p class="login-link">
+            Har du allerede en konto?
+            <a href="/login">Log ind</a>
+        </p>
+    </div>
+</section>
+
+@code {
+    private RegisterUserFormModel form = new();
+    private bool isLoading;
+    private string statusMessage = string.Empty;
+
+    private async Task HandleRegister()
+    {
+        isLoading = true;
+        statusMessage = string.Empty;
+
+        try
+        {
+            // TODO: Kalder backend-gruppens
+            // registreringsservice, når den er klar.
+            await Task.CompletedTask;
+
+            statusMessage =
+                "Oplysningerne er gyldige. " +
+                "Kontoen er endnu ikke oprettet.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

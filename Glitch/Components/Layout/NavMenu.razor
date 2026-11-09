@@ -1,26 +1,33 @@
-﻿<nav class="main-nav" aria-label="Hovedmenu">
-    <a class="brand" href="">
+﻿
+<nav class="main-nav" aria-label="Hovedmenu">
+    <NavLink class="brand" href="/" Match="NavLinkMatch.All">
         <span class="brand-name">GLITCH</span>
-        <span class="brand-slogan">
-            Ingen standardmodeller. Kun specialudgaver.
-        </span>
-    </a>
+        <span class="brand-slogan">Dating uden barrierer</span>
+    </NavLink>
 
     <div class="nav-links">
-        <NavLink href="" Match="NavLinkMatch.All">
-            Home
+        <NavLink href="/" Match="NavLinkMatch.All">
+            Forside
         </NavLink>
 
-        <NavLink href="discover">
+        <NavLink href="/discover">
             Opdag
         </NavLink>
 
-        <NavLink href="matches">
+        <NavLink href="/matches">
             Matches
         </NavLink>
 
-        <NavLink href="my-profile">
+        <NavLink href="/my-profile">
             Min profil
+        </NavLink>
+
+        <NavLink href="/account">
+            Konto
+        </NavLink>
+
+        <NavLink href="/login" class="login-link">
+            Log ind
         </NavLink>
     </div>
 </nav>

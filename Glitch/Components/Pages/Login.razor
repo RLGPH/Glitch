@@ -1,5 +1,83 @@
-@page "/Login"
 
-<PageTitle>Opdag – GLITCH</PageTitle>
+@page "/login"
+@rendermode InteractiveServer
+@using Glitch.ViewModels
 
-<h1>Opdag</h1>
+<PageTitle>Log ind – GLITCH</PageTitle>
+
+<section class="login-page">
+    <div class="login-card">
+        <h1>Velkommen tilbage</h1>
+        <p>Log ind for at fortsætte på Glitch.</p>
+
+        <EditForm Model="form"
+                  OnValidSubmit="HandleLogin"
+                  FormName="login">
+            <DataAnnotationsValidator />
+
+            <div class="login-field">
+                <label for="email">Email</label>
+
+                <InputText id="email"
+                           type="email"
+                           @bind-Value="form.Email"
+                           autocomplete="email" />
+
+                <ValidationMessage For="@(() => form.Email)" />
+            </div>
+
+            <div class="login-field">
+                <label for="password">Adgangskode</label>
+
+                <InputText id="password"
+                           type="password"
+                           @bind-Value="form.Password"
+                           autocomplete="current-password" />
+
+                <ValidationMessage For="@(() => form.Password)" />
+            </div>
+
+            <button class="btn btn-primary"
+                    type="submit"
+                    disabled="@isLoading">
+                @(isLoading ? "Logger ind..." : "Log ind")
+            </button>
+        </EditForm>
+
+        @if (!string.IsNullOrEmpty(statusMessage))
+        {
+            <p role="status">@statusMessage</p>
+        }
+
+        <p class="register-link">
+            Har du ikke en konto?
+            <a href="/register">Opret dig her</a>
+        </p>
+    </div>
+</section>
+
+@code {
+    private LoginFormModel form = new();
+    private string statusMessage = string.Empty;
+    private bool isLoading = false;
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        statusMessage = string.Empty;
+
+        try
+        {
+            // TODO: Her kobles backend-gruppens
+            // rigtige login-service på.
+            await Task.CompletedTask;
+
+            statusMessage =
+                "Formularen er godkendt. Afventer backend-login.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
