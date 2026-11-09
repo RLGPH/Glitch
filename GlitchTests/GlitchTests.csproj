@@ -18,4 +18,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Glitch\Glitch.csproj" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.22" />
+  </ItemGroup>
+
 </Project>
