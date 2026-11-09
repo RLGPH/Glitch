@@ -17,50 +17,60 @@ public class Matchmaking_service
         _context = context;
     }
     
-    public async Task<List<ProfileMatchScore>> GetPotentialMatchesAsync(int currentProfileId)
+    /// <param name="currentProfileId">The logged-in user's profile ID.</param>
+    /// <param name="filterConditionIds">Conditions selected in the UI filter panel. If empty, condition filters are ignored.</param>
+    /// <param name="filterInterestIds">Interests selected in the UI filter panel. If empty, interest filters are ignored.</param>
+    /// <param name="isResetRoundPressed">Set to true when the user hits 'Start forfra'. Temporarily bypasses session history while preserving active cooldowns.</param>
+    public async Task<List<Profile>> GetPotentialMatchesAsync(
+        int currentProfileId, 
+        List<int> filterConditionIds, 
+        List<int> filterInterestIds, 
+        bool isResetRoundPressed = false)
     {
-        // 1. Find all profile IDs the user has already swiped on
-        var excludedProfileIds = await _context.Swipes
-            .Where(s => s.FromProfileID == currentProfileId) 
+        var excludedProfileIds = new List<int> { currentProfileId };
+        
+        var activeMatchIds = await _context.Matches
+            .Where(m => m.ProfileAID == currentProfileId || m.ProfileBID == currentProfileId)
+            .Select(m => m.ProfileAID == currentProfileId ? m.ProfileBID : m.ProfileAID)
+            .ToListAsync();
+        excludedProfileIds.AddRange(activeMatchIds);
+
+        var sevenDaysAgo = DateTime.UtcNow.AddDays(-7);
+        var recentRejections = await _context.Swipes
+            .Where(s => s.FromProfileID == currentProfileId && !s.IsLiked && s.CreatedAt > sevenDaysAgo)
             .Select(s => s.ToProfileID)
             .ToListAsync();
-
-        // Add current user to exclusions so they don't match with themselves
-        excludedProfileIds.Add(currentProfileId);
-
-        // 2. Extract lists of the current user's condition and interest IDs to use in our matching query
-        var currentUserConditionIds = await _context.ProfileConditions
-            .Where(pc => pc.Profilefield == currentProfileId) 
-            .Select(pc => pc.ConditionID)
-            .ToListAsync();
-
-        var currentUserInterestIds = await _context.ProfileInterests
-            .Where(pi => pi.ProfileID == currentProfileId)
-            .Select(pi => pi.InterestID)
-            .ToListAsync();
-
-        // 3. Query profiles directly in SQL, calculating scores dynamically
-        var potentialMatchesQuery = _context.Profiles
-            .Where(p => !excludedProfileIds.Contains(p.ProfileID))
-            .Select(otherProfile => new ProfileMatchScore
+        excludedProfileIds.AddRange(recentRejections);
+        
+        if (!isResetRoundPressed)
+        {
+            var historicalSwipes = await _context.Swipes
+                .Where(s => s.FromProfileID == currentProfileId)
+                .Select(s => s.ToProfileID)
+                .ToListAsync();
+            excludedProfileIds.AddRange(historicalSwipes);
+        }
+        
+        var query = _context.Profiles.Where(p => !excludedProfileIds.Contains(p.ProfileID));
+        
+        if (filterConditionIds != null && filterConditionIds.Any())
+        {
+            foreach (var condId in filterConditionIds)
             {
-                Profile = otherProfile,
-                
-                // Count how many conditions match the current user
-                SharedConditionsCount = _context.ProfileConditions
-                    .Count(pc => pc.Profilefield == otherProfile.ProfileID && currentUserConditionIds.Contains(pc.ConditionID)),
+                query = query.Where(p => _context.ProfileConditions
+                    .Any(pc => pc.Profilefield == p.ProfileID && pc.ConditionID == condId));
+            }
+        }
+        
+        if (filterInterestIds != null && filterInterestIds.Any())
+        {
+            foreach (var intId in filterInterestIds)
+            {
+                query = query.Where(p => _context.ProfileInterests
+                    .Any(pi => pi.ProfileID == p.ProfileID && pi.InterestID == intId));
+            }
+        }
 
-                // Count how many interests match the current user
-                SharedInterestsCount = _context.ProfileInterests
-                    .Count(pi => pi.ProfileID == otherProfile.ProfileID && currentUserInterestIds.Contains(pi.InterestID)),
-
-                // Dynamic scoring (10pts per shared condition, 5pts per shared interest)
-                MatchScore = (_context.ProfileConditions.Count(pc => pc.Profilefield == otherProfile.ProfileID && currentUserConditionIds.Contains(pc.ConditionID)) * 10) +
-                             (_context.ProfileInterests.Count(pi => pi.ProfileID == otherProfile.ProfileID && currentUserInterestIds.Contains(pi.InterestID)) * 5)
-            })
-            .OrderByDescending(m => m.MatchScore)         // Highest scores first
-            .ThenByDescending(m => m.Profile.LastUpdatedAt); // Tie-breaker: active profiles first
-
-        return await potentialMatchesQuery.ToListAsync();
+        return await query.OrderByDescending(p => p.LastUpdatedAt).ToListAsync();
     }
 }
