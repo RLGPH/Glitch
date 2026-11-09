@@ -50,40 +50,32 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Læs brugerens login-cookie
+// Statiske filer, herunder uploadede profilbilleder
+app.UseStaticFiles();
+
+// Cookie-login og adgangskontrol
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseAntiforgery();
 
+// Statiske assets fra Blazor
 app.MapStaticAssets();
 
-
+// Blazor-komponenter
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-
-// ==========================================
-// LOG UD
-// ==========================================
-
-// Modtager POST fra Log ud-knappen.
-// Bruger den eksisterende cookie-authentication.
-
+// Logout
 app.MapPost("/auth/logout", async (HttpContext context) =>
 {
-    // Fjern brugerens login-cookie.
     await context.SignOutAsync(
         CookieAuthenticationDefaults.AuthenticationScheme
     );
 
-    // Send brugeren tilbage til login.
     return Results.LocalRedirect("/login");
-
 })
 .RequireAuthorization();
 
-
-// Start applikationen.
 app.Run();
 
