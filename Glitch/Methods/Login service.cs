@@ -1,34 +1,47 @@
 ﻿using Glitch.Classes;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using Glitch.Data;
+using Microsoft.EntityFrameworkCore;
 
-public class LoginService
+public sealed class LoginService(IDbContextFactory<GlitchDbContext> contextFactory)
 {
-    public LoginResult Authenticate(string email, string password)
+    public async Task<LoginResult> AuthenticateAsync(
+        string email,
+        string password,
+        CancellationToken cancellationToken = default)
     {
-        
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
         {
-            return new LoginResult { Success = false, Message = "Email and password are required." };
+            return new LoginResult
+            {
+                Success = false,
+                Message = "Email and password are required."
+            };
         }
 
-        // 
-        /*var user = "list of users gotten from db".FirstOrDefault(u => u.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+        await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
 
-        if (user == null)
-        {
-            return new LoginResult { Success = false, Message = "Invalid email or password." };
-        }
+        var user = await context.Users
+            .Include(currentUser => currentUser.Profile)
+            .SingleOrDefaultAsync(
+                currentUser => currentUser.Email == email,
+                cancellationToken);
 
-        if (!user.IsActive)
+        if (user is null || !user.IsActive)
         {
-            return new LoginResult { Success = false, Message = "This account has been deactivated." };
+            return new LoginResult
+            {
+                Success = false,
+                Message = "Invalid email or password."
+            };
         }
 
         if (user.Password != password)
         {
-            return new LoginResult { Success = false, Message = "Invalid email or password." };
+            return new LoginResult
+            {
+                Success = false,
+                Message = "Invalid email or password."
+            };
         }
 
         return new LoginResult
@@ -36,9 +49,6 @@ public class LoginService
             Success = true,
             Message = "Login successful.",
             UserProfile = user.Profile
-        };*/
-
-        // remove after db is able to be used
-        return new LoginResult { Success = true, Message = "Login successful.", UserProfile = new Profile { DisplayName = "Test User" } };
+        };
     }
 }
