@@ -1,96 +1,494 @@
+
 @page "/my-profile"
 @rendermode InteractiveServer
-@using Glitch.ViewModels
+@attribute [Authorize]
+
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using Glitch.Classes
+@using Glitch.Data
+@using Glitch.Methods
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.EntityFrameworkCore
+
+@inject IDbContextFactory<GlitchDbContext> DbFactory
+@inject AuthenticationStateProvider AuthProvider
+@inject IWebHostEnvironment Environment
 
 <PageTitle>Min profil – GLITCH</PageTitle>
 
 <section class="profile-page">
+
     <header class="profile-header">
         <h1>Min profil</h1>
-        <p>Fortæl lidt om dig selv.</p>
+        <p>Fortæl lidt om dig selv, og hvad der gør dig unik.</p>
     </header>
 
     <div class="profile-card">
-        <EditForm EditContext="editContext" OnValidSubmit="HandleValidSubmit" OnInvalidSubmit="ClearStatus">
-            <DataAnnotationsValidator />
 
-            <div class="profile-field">
-                <label for="profile-image">Profilbillede</label>
+        @if (isLoading)
+        {
+            <p role="status">Henter din profil...</p>
+        }
+        else if (!string.IsNullOrEmpty(loadError))
+        {
+            <p role="alert" class="validation-message">
+                @loadError
+            </p>
+        }
+        else
+        {
+            <EditForm Model="@form"
+                      OnValidSubmit="SaveProfileAsync"
+                      FormName="my-profile">
 
-                <InputFile id="profile-image"  OnChange="HandleImageSelected" accept="image/jpeg,image/png"/>
-                @if(!string.IsNullOrEmpty(imageError))
-                {
-                    <p role="alert" class="validation-message">@imageError</p>
-                }
-                @if( !string.IsNullOrEmpty(imagePreviewUrl)){
-                <img src="@imagePreviewUrl" alt="Forhåndsvisning af profilbillede" />
-                }
-                
-                <p>@selectedImageName</p>
+                <DataAnnotationsValidator />
 
-                <ValidationMessage For="@(() => form.ProfileImage)" />
-                
-            </div>
+                <!-- PROFILBILLEDE -->
+                <div class="profile-field">
 
-            <div class="profile-field">
-                <label for="display-name">Dit navn</label>
+                    <label for="profile-image">Profilbillede</label>
 
-                <InputText id="display-name" @bind-Value="form.DisplayName" @bind-Value:after="ClearStatus" />
+                    @if (!string.IsNullOrEmpty(imagePreviewUrl))
+                    {
+                        <img class="preview-image"
+                             src="@imagePreviewUrl"
+                             alt="Dit profilbillede" />
+                    }
 
-                <ValidationMessage For="@(() => form.DisplayName)" />
-            </div>
+                    <InputFile id="profile-image"
+                               OnChange="HandleImageSelected"
+                               accept="image/jpeg,image/png" />
 
-            <div class="profile-field">
-                <label for="bio">Om dig</label>
+                    <small>JPEG eller PNG, maks. 2 MB.</small>
 
-                <InputTextArea id="bio" rows="4" @bind-Value="form.Bio" @bind-Value:after="ClearStatus" />
+                    @if (!string.IsNullOrEmpty(imageError))
+                    {
+                        <p class="validation-message" role="alert">
+                            @imageError
+                        </p>
+                    }
 
-                <ValidationMessage For="@(() => form.Bio)" />
-            </div>
+                </div>
 
-            <button type="submit" class="btn btn-primary">
-                Kontrollér oplysninger
-            </button>
-        </EditForm>
+                <!-- NAVN -->
+                <div class="profile-field">
 
-        <p role="status">@statusMessage</p>
+                    <label for="display-name">Dit navn</label>
+
+                    <InputText id="display-name"
+                               @bind-Value="form.DisplayName" />
+
+                    <ValidationMessage
+                        For="@(() => form.DisplayName)" />
+
+                </div>
+
+                <!-- BIO -->
+                <div class="profile-field">
+
+                    <label for="bio">Om dig</label>
+
+                    <InputTextArea id="bio"
+                                   rows="5"
+                                   @bind-Value="form.Bio" />
+
+                    <ValidationMessage
+                        For="@(() => form.Bio)" />
+
+                </div>
+
+                <!-- INTERESSER -->
+                <fieldset class="profile-field">
+
+                    <legend>Mine interesser</legend>
+
+                    <p class="field-description">
+                        Vælg de interesser, der passer til dig.
+                    </p>
+
+                    <div class="profile-options">
+
+                        @foreach (var interest in interests)
+                        {
+                            <label class="profile-option"
+                                   @key="interest.InterestID">
+
+                                <input type="checkbox"
+                                       checked="@selectedInterestIds.Contains(interest.InterestID)"
+                                       @onchange="e => ToggleInterest(interest.InterestID, e.Value is true)" />
+
+                                <span>@interest.Name</span>
+
+                            </label>
+                        }
+
+                        @if (interests.Count == 0)
+                        {
+                            <p>Ingen interesser er oprettet endnu.</p>
+                        }
+
+                    </div>
+
+                </fieldset>
+
+                <!-- DIAGNOSER -->
+                <fieldset class="profile-field">
+
+                    <legend>Diagnoser og handicap</legend>
+
+                    <p class="field-description">
+                        Frivilligt – du behøver ikke vælge noget.
+                    </p>
+
+                    <div class="profile-options">
+
+                        @foreach (var condition in conditions)
+                        {
+                            <label class="profile-option"
+                                   @key="condition.ID">
+
+                                <input type="checkbox"
+                                       checked="@selectedConditionIds.Contains(condition.ID)"
+                                       @onchange="e => ToggleCondition(condition.ID, e.Value is true)" />
+
+                                <span>@condition.Name</span>
+
+                            </label>
+                        }
+
+                        @if (conditions.Count == 0)
+                        {
+                            <p>Ingen diagnoser er oprettet endnu.</p>
+                        }
+
+                    </div>
+
+                </fieldset>
+
+                <!-- BRUGERDEFINEREDE DIAGNOSER -->
+                <div class="profile-field">
+
+                    <label for="custom-condition">
+                        Andet (frivilligt)
+                    </label>
+
+                    <div class="profile-options">
+
+                        @foreach (var item in customConditions)
+                        {
+                            <div class="profile-option" @key="item">
+
+                                <span>@item</span>
+
+                                <button type="button"
+                                        class="btn btn-secondary"
+                                        aria-label="Fjern @item"
+                                        @onclick="() => RemoveCustomCondition(item)">
+                                    Fjern
+                                </button>
+
+                            </div>
+                        }
+
+                    </div>
+
+                    <InputText id="custom-condition"
+                               @bind-Value="newCustomCondition"
+                               maxlength="100"
+                               placeholder="Skriv en diagnose eller et handicap" />
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            @onclick="AddCustomCondition">
+
+                        Tilføj
+                    </button>
+
+                </div>
+
+                <!-- GEM -->
+                <button type="submit"
+                        class="btn btn-primary"
+                        disabled="@isSaving">
+
+                    @(isSaving ? "Gemmer..." : "Gem profil")
+
+                </button>
+
+            </EditForm>
+
+            @if (!string.IsNullOrEmpty(statusMessage))
+            {
+                <p role="status" class="profile-status">
+                    @statusMessage
+                </p>
+            }
+        }
+
     </div>
+
 </section>
 
 @code {
-    private ProfileFormModel form = new();
 
-    private string statusMessage = string.Empty;
-
-    private void HandleValidSubmit()
+    // Formularen bruger en lokal frontendmodel.
+    // Der oprettes ingen ny databasemodel.
+    private sealed class ProfileEditModel
     {
-        statusMessage = "Navn og profiltekst og billede er gyldige";
+        [Required(ErrorMessage = "Skriv dit profilnavn.")]
+        [StringLength(100)]
+        public string DisplayName { get; set; } = "";
+
+        [Required(ErrorMessage = "Skriv lidt om dig selv.")]
+        [StringLength(2000)]
+        public string Bio { get; set; } = "";
     }
 
-    private void ClearStatus()
+    private ProfileEditModel form = new();
+
+    // Aktuel bruger
+    private int currentUserId;
+    private int currentProfileId;
+
+    // Profilbillede
+    private string currentImagePath = "";
+    private string imagePreviewUrl = "";
+    private string imageError = "";
+    private byte[]? selectedImageBytes;
+    private string selectedImageExtension = "";
+
+    // Data fra SQLite
+    private List<Interest> interests = new();
+    private List<Condition> conditions = new();
+
+    private HashSet<int> selectedInterestIds = new();
+    private HashSet<int> selectedConditionIds = new();
+
+    private List<string> customConditions = new();
+    private string newCustomCondition = "";
+
+    // Status
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string loadError = "";
+    private string statusMessage = "";
+
+
+    // =====================================
+    // HENT BRUGERENS EGEN PROFIL
+    // =====================================
+
+    protected override async Task OnInitializedAsync()
     {
-        statusMessage = string.Empty;
+        await LoadProfileAsync();
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        isLoading = true;
+        loadError = "";
+
+        try
+        {
+            var authState =
+                await AuthProvider.GetAuthenticationStateAsync();
+
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated != true)
+            {
+                loadError = "Du skal være logget ind.";
+                return;
+            }
+
+            // ID'erne kommer fra login-cookien.
+            bool hasUserId = int.TryParse(
+                user.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                out int userId
+            );
+
+            bool hasProfileId = int.TryParse(
+                user.FindFirst("ProfileID")?.Value,
+                out int profileId
+            );
+
+            if (!hasUserId || !hasProfileId)
+            {
+                loadError = "Kunne ikke identificere din profil.";
+                return;
+            }
+
+            await using var db =
+                await DbFactory.CreateDbContextAsync();
+
+            // Profilen skal tilhøre den indloggede bruger.
+            var profile = await db.Profiles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p =>
+                    p.ProfileID == profileId &&
+                    p.UserID == userId
+                );
+
+            if (profile is null)
+            {
+                loadError = "Din profil blev ikke fundet.";
+                return;
+            }
+
+            currentUserId = userId;
+            currentProfileId = profileId;
+
+            form.DisplayName = profile.DisplayName;
+            form.Bio = profile.Bio ?? "";
+
+            currentImagePath = profile.ImagePath ?? "";
+            imagePreviewUrl = currentImagePath;
+
+            // Hent alle almindelige interesser.
+            interests = await db.Interests
+                .AsNoTracking()
+                .OrderBy(i => i.Name)
+                .ToListAsync();
+
+            // Hent almindelige diagnoser.
+            conditions = await db.Conditions
+                .AsNoTracking()
+                .Where(c => !c.IsCustom)
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
+            // Hent brugerens gemte interesse-ID'er.
+            selectedInterestIds = (
+                await db.ProfileInterests
+                    .AsNoTracking()
+                    .Where(pi => pi.ProfileID == profileId)
+                    .Select(pi => pi.InterestID)
+                    .ToListAsync()
+            ).ToHashSet();
+
+            // Hent brugerens gemte diagnose-ID'er.
+            var savedConditionIds = await db.ProfileConditions
+                .AsNoTracking()
+                .Where(pc => pc.Profilefield == profileId)
+                .Select(pc => pc.ConditionID)
+                .ToListAsync();
+
+            var savedConditions = await db.Conditions
+                .AsNoTracking()
+                .Where(c => savedConditionIds.Contains(c.ID))
+                .ToListAsync();
+
+            selectedConditionIds = savedConditions
+                .Where(c => !c.IsCustom)
+                .Select(c => c.ID)
+                .ToHashSet();
+
+            // Brugerdefinerede diagnoser.
+            customConditions = savedConditions
+                .Where(c => c.IsCustom)
+                .Select(c => c.Name)
+                .Distinct()
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(ex);
+            loadError = "Din profil kunne ikke indlæses.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
 
-    private string imagePreviewUrl = string.Empty;
-    private string imageError = string.Empty;
-    private string selectedImageName = string.Empty;
-    private EditContext editContext = default!;
+    // =====================================
+    // VÆLG INTERESSER OG DIAGNOSER
+    // =====================================
 
-    private async Task HandleImageSelected(InputFileChangeEventArgs e)
+    private void ToggleInterest(int id, bool selected)
     {
-        ClearStatus();
+        if (selected)
+            selectedInterestIds.Add(id);
+        else
+            selectedInterestIds.Remove(id);
 
-        imagePreviewUrl = string.Empty;
-        imageError = string.Empty;
-        selectedImageName = string.Empty;
-        form.ProfileImage = null;
-        editContext.NotifyFieldChanged(
-        new FieldIdentifier(form, nameof(form.ProfileImage)));
+        statusMessage = "";
+    }
+
+    private void ToggleCondition(int id, bool selected)
+    {
+        if (selected)
+            selectedConditionIds.Add(id);
+        else
+            selectedConditionIds.Remove(id);
+
+        statusMessage = "";
+    }
+
+
+    // =====================================
+    // BRUGERDEFINEREDE DIAGNOSER
+    // =====================================
+
+    private void AddCustomCondition()
+    {
+        string value = newCustomCondition.Trim();
+
+        if (string.IsNullOrEmpty(value))
+            return;
+
+        if (value.Length > 100)
+        {
+            statusMessage = "Diagnosen må højst være 100 tegn.";
+            return;
+        }
+
+        if (!customConditions.Contains(
+                value, StringComparer.OrdinalIgnoreCase))
+        {
+            customConditions.Add(value);
+        }
+
+        newCustomCondition = "";
+        statusMessage = "";
+    }
+
+    private void RemoveCustomCondition(string value)
+    {
+        customConditions.Remove(value);
+        statusMessage = "";
+    }
+
+
+    // =====================================
+    // PROFILBILLEDE
+    // =====================================
+
+    private async Task HandleImageSelected(
+        InputFileChangeEventArgs e)
+    {
+        imageError = "";
+        statusMessage = "";
+
+        selectedImageBytes = null;
+        selectedImageExtension = "";
+
+        // Gendan eksisterende billede ved fejl.
+        imagePreviewUrl = currentImagePath;
 
         var file = e.File;
-        const long maxFileSize = 2 * 1024 * 1024;
+
+        const long maxSize = 2 * 1024 * 1024;
+
+        if (file.Size == 0 || file.Size > maxSize)
+        {
+            imageError = "Billedet skal fylde mellem 1 byte og 2 MB.";
+            return;
+        }
 
         if (file.ContentType != "image/jpeg" &&
             file.ContentType != "image/png")
@@ -99,37 +497,197 @@
             return;
         }
 
-        if (file.Size > maxFileSize)
-        {
-            imageError = "Billedet må højst fylde 2 MB.";
-            return;
-        }
-
         try
         {
-            using var stream = file.OpenReadStream(maxFileSize);
+            await using var stream =
+                file.OpenReadStream(maxSize);
+
             using var memory = new MemoryStream();
 
             await stream.CopyToAsync(memory);
 
-            var base64 = Convert.ToBase64String(memory.ToArray());
+            var bytes = memory.ToArray();
+
+            // Kontroller også filens signatur.
+            bool isPng =
+                bytes.Length >= 8 &&
+                bytes[0] == 0x89 &&
+                bytes[1] == 0x50 &&
+                bytes[2] == 0x4E &&
+                bytes[3] == 0x47 &&
+                bytes[4] == 0x0D &&
+                bytes[5] == 0x0A &&
+                bytes[6] == 0x1A &&
+                bytes[7] == 0x0A;
+
+            bool isJpeg =
+                bytes.Length >= 3 &&
+                bytes[0] == 0xFF &&
+                bytes[1] == 0xD8 &&
+                bytes[2] == 0xFF;
+
+            if (file.ContentType == "image/png" && isPng)
+            {
+                selectedImageExtension = ".png";
+            }
+            else if (file.ContentType == "image/jpeg" && isJpeg)
+            {
+                selectedImageExtension = ".jpg";
+            }
+            else
+            {
+                imageError = "Billedfilen er ugyldig.";
+                return;
+            }
+
+            selectedImageBytes = bytes;
 
             imagePreviewUrl =
-                $"data:{file.ContentType};base64,{base64}";
-
-            selectedImageName = file.Name;
-            form.ProfileImage = file;
-            editContext.NotifyFieldChanged(
-        new FieldIdentifier(form, nameof(form.ProfileImage)));
+                $"data:{file.ContentType};base64," +
+                Convert.ToBase64String(bytes);
         }
-        catch (IOException)
+        catch (Exception ex)
         {
-            imageError = "Billedet kunne ikke læses. Prøv igen.";
+            Console.Error.WriteLine(ex);
+            imageError = "Billedet kunne ikke læses.";
         }
     }
-    protected override void OnInitialized()
-{
-    editContext = new EditContext(form);
-}
 
+
+    // =====================================
+    // GEM HELE PROFILEN
+    // =====================================
+
+    private async Task SaveProfileAsync()
+    {
+        if (isSaving)
+            return;
+
+        statusMessage = "";
+
+        if (!string.IsNullOrEmpty(imageError))
+        {
+            statusMessage = "Ret fejlen ved profilbilledet.";
+            return;
+        }
+
+        // Krav om profilbillede.
+        if (string.IsNullOrEmpty(currentImagePath) &&
+            selectedImageBytes is null)
+        {
+            statusMessage = "Vælg et profilbillede.";
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            // Kontroller login og ejerskab igen.
+            var authState =
+                await AuthProvider.GetAuthenticationStateAsync();
+
+            var user = authState.User;
+
+            bool hasUserId = int.TryParse(
+                user.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                out int userId
+            );
+
+            bool hasProfileId = int.TryParse(
+                user.FindFirst("ProfileID")?.Value,
+                out int profileId
+            );
+
+            if (user.Identity?.IsAuthenticated != true ||
+                !hasUserId || !hasProfileId ||
+                userId != currentUserId ||
+                profileId != currentProfileId)
+            {
+                statusMessage = "Din loginstatus er ikke gyldig.";
+                return;
+            }
+
+            await using var db =
+                await DbFactory.CreateDbContextAsync();
+
+            var profile = await db.Profiles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p =>
+                    p.ProfileID == profileId &&
+                    p.UserID == userId
+                );
+
+            if (profile is null)
+            {
+                statusMessage = "Din profil blev ikke fundet.";
+                return;
+            }
+
+            string imagePath = profile.ImagePath ?? "";
+
+            // Gem nyt billede på serveren.
+            if (selectedImageBytes is not null)
+            {
+                string webRoot =
+                    Environment.WebRootPath ??
+                    Path.Combine(Environment.ContentRootPath, "wwwroot");
+
+                string folder = Path.Combine(
+                    webRoot, "profile-images"
+                );
+
+                Directory.CreateDirectory(folder);
+
+                string fileName =
+                    Guid.NewGuid().ToString("N") +
+                    selectedImageExtension;
+
+                string filePath =
+                    Path.Combine(folder, fileName);
+
+                await File.WriteAllBytesAsync(
+                    filePath, selectedImageBytes
+                );
+
+                imagePath = "/profile-images/" + fileName;
+            }
+
+            // Brug eksisterende backendmetoder.
+            var accountUpdate = new AccountUpdate(db);
+
+            await accountUpdate.UpdateProfileBasicsAsync(
+                profileId,
+                form.DisplayName.Trim(),
+                form.Bio.Trim(),
+                imagePath
+            );
+
+            await accountUpdate.UpdateProfileAttributesAsync(
+                profileId,
+                selectedConditionIds.ToList(),
+                customConditions,
+                selectedInterestIds.ToList()
+            );
+
+            currentImagePath = imagePath;
+            imagePreviewUrl = imagePath;
+
+            selectedImageBytes = null;
+            selectedImageExtension = "";
+
+            statusMessage = "Din profil er gemt!";
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(ex);
+
+            statusMessage =
+                "Der opstod en fejl under gemning af profilen.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
 }

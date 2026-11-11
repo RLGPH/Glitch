@@ -1,5 +1,188 @@
-@page "/Login"
 
-<PageTitle>Opdag – GLITCH</PageTitle>
+@page "/login"
 
-<h1>Opdag</h1>
+@using System.Security.Claims
+@using Glitch.ViewModels
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject LoginService LoginService
+@inject NavigationManager Navigation
+
+<PageTitle>Log ind – GLITCH</PageTitle>
+
+<section class="login-page">
+
+    <div class="login-card">
+
+        <header class="login-header">
+            <h1>Velkommen til GLITCH</h1>
+
+            <p class="login-subtitle">
+                Dating uden barrierer
+            </p>
+
+            <p>
+                Log ind for at finde nye matches.
+            </p>
+        </header>
+
+        <EditForm Model="@form"
+                  OnValidSubmit="HandleLoginAsync"
+                  FormName="login">
+
+            <DataAnnotationsValidator />
+
+            <div class="login-fields">
+
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+
+                    <InputText id="login-email"
+                               class="form-control"
+                               type="email"
+                               autocomplete="email"
+                               @bind-Value="form.Email" />
+
+                    <ValidationMessage
+                        For="@(() => form.Email)" />
+                </div>
+
+                <div class="form-group">
+                    <label for="login-password">
+                        Adgangskode
+                    </label>
+
+                    <InputText id="login-password"
+                               class="form-control"
+                               type="password"
+                               autocomplete="current-password"
+                               @bind-Value="form.Password" />
+
+                    <ValidationMessage
+                        For="@(() => form.Password)" />
+                </div>
+
+                <button type="submit"
+                        class="login-button">
+                    Log ind
+                </button>
+
+            </div>
+
+        </EditForm>
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="login-status login-error"
+                 role="alert">
+
+                @statusMessage
+
+            </div>
+        }
+
+        <div class="login-footer">
+            <p>Har du ikke en konto endnu?</p>
+
+            <a href="/register">
+                Opret en konto
+            </a>
+        </div>
+
+    </div>
+
+</section>
+
+@code {
+
+    // HTTP-konteksten er tilgængelig,
+    // fordi login-siden bruger statisk SSR.
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    // Binder formularens værdier ved HTTP POST.
+    [SupplyParameterFromForm(FormName = "login")]
+    private LoginFormModel form { get; set; } = new();
+
+    private string statusMessage = string.Empty;
+
+
+    private async Task HandleLoginAsync()
+    {
+        statusMessage = string.Empty;
+
+        if (HttpContext is null)
+        {
+            statusMessage =
+                "Login kunne ikke gennemføres.";
+            return;
+        }
+
+        // Brug den eksisterende backendmetode.
+        var result = await LoginService.AuthenticateAsync(
+            form.Email.Trim(),
+            form.Password
+        );
+
+        if (!result.Success || result.UserProfile is null)
+        {
+            statusMessage =
+                "Forkert email eller adgangskode.";
+            return;
+        }
+
+        // Opret brugerens identitet.
+        var claims = new List<Claim>
+        {
+            // ID på brugeren i Users-tabellen
+            new Claim(
+                ClaimTypes.NameIdentifier,
+                result.UserProfile.UserID.ToString()
+            ),
+
+            // Email til visning på kontosiden
+            new Claim(
+                ClaimTypes.Email,
+                form.Email.Trim()
+            ),
+
+            // ID på brugerens profil
+            new Claim(
+                "ProfileID",
+                result.UserProfile.ProfileID.ToString()
+            ),
+
+            // Visningsnavn
+            new Claim(
+                ClaimTypes.Name,
+                result.UserProfile.DisplayName
+            )
+        };
+
+        var identity = new ClaimsIdentity(
+            claims,
+            CookieAuthenticationDefaults.AuthenticationScheme
+        );
+
+        var principal = new ClaimsPrincipal(identity);
+
+        // Opret den beskyttede login-cookie.
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            principal,
+            new AuthenticationProperties
+            {
+                IsPersistent = false
+            }
+        );
+
+        // Start en ny sideindlæsning, så Blazor
+        // får den nye loginstatus.
+        Navigation.NavigateTo(
+            "/discover",
+            forceLoad: true
+        );
+    }
+}
