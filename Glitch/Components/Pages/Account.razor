@@ -1,25 +1,22 @@
 
 @page "/account"
 @rendermode InteractiveServer
-
-@using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 
+@inject AuthenticationStateProvider AuthProvider
 @inject NavigationManager Navigation
 
 <PageTitle>Min konto – GLITCH</PageTitle>
 
 <section class="account-page">
 
-    <!-- OVERSKRIFT -->
     <header class="account-header">
         <h1>Min konto</h1>
-
-        <p>
-            Her kan du administrere din konto,
-            din profil og dine oplysninger.
-        </p>
+        <p>Administrer din konto og din profil.</p>
     </header>
 
     <!-- KONTOOPLYSNINGER -->
@@ -27,88 +24,35 @@
 
         <h2>Kontooplysninger</h2>
 
-        <p class="section-description">
-            Oplysninger om din Glitch-konto.
-        </p>
-
         <div class="account-info">
 
             <div class="account-info-row">
                 <span class="info-label">Email</span>
-                <span class="info-value">
-                    Afventer loginintegration
-                </span>
-            </div>
 
-            <div class="account-info-row">
-                <span class="info-label">Kontostatus</span>
                 <span class="info-value">
-                    Ikke tilgængelig endnu
+                    @userEmail
                 </span>
             </div>
 
         </div>
 
-        <p class="account-note">
-            Kontooplysninger bliver vist her, når
-            login og brugeridentifikation er tilsluttet.
-        </p>
-
     </section>
 
-    <!-- PROFILINDSTILLINGER -->
+    <!-- REDIGER PROFIL -->
     <section class="account-card">
 
         <h2>Min profil</h2>
 
         <p class="section-description">
-            Du kan ændre dit profilbillede,
-            dit navn, din beskrivelse,
-            dine interesser og dine diagnoser.
+            Rediger dit profilbillede, navn, beskrivelse,
+            interesser og diagnoser.
         </p>
 
         <button type="button"
                 class="account-button primary-button"
                 @onclick="GoToProfile">
-
             Rediger min profil
         </button>
-
-    </section>
-
-    <!-- LOGIN OG SIKKERHED -->
-    <section class="account-card">
-
-        <h2>Login og sikkerhed</h2>
-
-        <p class="section-description">
-            Administrer din adgang til Glitch.
-        </p>
-
-        <div class="account-action">
-
-            <div>
-                <h3>Log ud</h3>
-
-                <p>
-                    Afslut din session på denne enhed.
-                </p>
-            </div>
-
-            <button type="button"
-                    class="account-button secondary-button"
-                    disabled
-                    title="Afventer backend-login">
-
-                Log ud
-            </button>
-
-        </div>
-
-        <p class="account-note">
-            Logout bliver aktiveret, når backend
-            understøtter autentificerede sessioner.
-        </p>
 
     </section>
 
@@ -118,39 +62,25 @@
         <h2>Slet konto</h2>
 
         <p class="section-description">
-            Hvis du ikke længere ønsker at bruge
-            Glitch, kan du anmode om at slette
-            din konto.
-        </p>
-
-        <p class="danger-description">
-            Når kontoen slettes, skal tilknyttede
-            personoplysninger, matches og beskeder
-            også håndteres efter kravspecifikationen.
+            Du kan slette din Glitch-konto.
+            Det vil også fjerne de oplysninger,
+            der er knyttet til kontoen.
         </p>
 
         <button type="button"
                 class="account-button danger-button"
                 @onclick="ShowDeleteConfirmation">
-
             Slet min konto
         </button>
 
     </section>
 
-    <!-- DEMO STATUS -->
-    <p class="account-demo-notice">
-        Kontosiden er under integration.
-        Ingen kontoændringer udføres endnu.
-    </p>
-
 </section>
 
-<!-- BEKRÆFTELSE AF KONTO-SLETNING -->
+<!-- BEKRÆFTELSE AF SLETNING -->
 @if (showDeleteConfirmation)
 {
-    <div class="modal-overlay"
-         role="presentation">
+    <div class="modal-overlay" role="presentation">
 
         <div class="delete-modal"
              role="dialog"
@@ -163,19 +93,14 @@
             </h2>
 
             <p id="delete-description">
-                Denne handling vil være permanent,
-                når kontosletning bliver implementeret.
+                Sletning af kontoen vil være permanent.
+                Din profil, dine matches og tilknyttede
+                beskeder skal også slettes.
             </p>
 
             <p class="delete-warning">
-                Alle dine profiloplysninger, matches
-                og beskeder skal slettes i henhold
-                til kravspecifikationen.
-            </p>
-
-            <p class="account-note">
-                Dette er kun en demonstration.
-                Kontoen kan ikke slettes endnu.
+                Kontosletning er endnu ikke tilsluttet
+                backend. Ingen oplysninger bliver slettet nu.
             </p>
 
             <div class="modal-actions">
@@ -183,44 +108,45 @@
                 <button type="button"
                         class="account-button secondary-button"
                         @onclick="CancelDelete">
-
                     Annuller
                 </button>
 
                 <button type="button"
                         class="account-button danger-button"
                         disabled>
-
                     Bekræft sletning
                 </button>
 
             </div>
 
         </div>
+
     </div>
 }
 
 @code {
 
-    // =====================================
-    // VISNING AF SLETNINGSBEKRÆFTELSE
-    // =====================================
-
+    private string userEmail = "";
     private bool showDeleteConfirmation = false;
 
-    // =====================================
-    // NAVIGATION TIL PROFIL
-    // =====================================
+    // Hent email fra den eksisterende login-session.
+    protected override async Task OnInitializedAsync()
+    {
+        var authState =
+            await AuthProvider.GetAuthenticationStateAsync();
 
+        userEmail = authState.User
+            .FindFirst(ClaimTypes.Email)?.Value
+            ?? "Email ikke fundet";
+    }
+
+    // Åbn den eksisterende profilside.
     private void GoToProfile()
     {
         Navigation.NavigateTo("/my-profile");
     }
 
-    // =====================================
-    // SLET KONTO - FRONTEND
-    // =====================================
-
+    // Vis bekræftelse før kontosletning.
     private void ShowDeleteConfirmation()
     {
         showDeleteConfirmation = true;
@@ -230,15 +156,4 @@
     {
         showDeleteConfirmation = false;
     }
-
-    // TODO:
-    // Når backend har implementeret kontosletning,
-    // forbindes bekræftelsen til den eksisterende
-    // backendfunktion.
-    //
-    // Der oprettes ikke en ny backendmetode her.
-
-    // TODO:
-    // Når login-sessioner er implementeret,
-    // forbindes Logout til backend.
 }
