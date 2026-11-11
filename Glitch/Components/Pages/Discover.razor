@@ -544,9 +544,6 @@
         else
             selectedInterestIds.Remove(id);
 
-        // En filterændring starter en ny visningsrunde,
-        // men ændrer ikke tidligere swipes i databasen.
-        viewedProfileIds.Clear();
 
         await LoadProfilesAsync();
     }
@@ -559,8 +556,6 @@
         else
             selectedConditionIds.Remove(id);
 
-        viewedProfileIds.Clear();
-
         await LoadProfilesAsync();
     }
 
@@ -568,8 +563,6 @@
     {
         selectedInterestIds.Clear();
         selectedConditionIds.Clear();
-
-        viewedProfileIds.Clear();
 
         await LoadProfilesAsync();
     }
