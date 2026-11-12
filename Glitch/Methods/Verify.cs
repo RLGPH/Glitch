@@ -6,7 +6,7 @@ namespace Glitch.Methods
     {
         public static bool IsValidEmail(string email)
         {
-            //missing list of emails from database to actaullally compare with
+           
             List<User> Users = new List<User>();
             foreach (var User in Users)
             {
