@@ -109,6 +109,11 @@ public sealed class GlitchDbContext(DbContextOptions<GlitchDbContext> options) :
                 .WithMany()
                 .HasForeignKey(msg => msg.SenderProfileID)
                 .OnDelete(DeleteBehavior.Cascade);
+            
+            entity.HasOne<Profile>()
+                .WithMany()
+                .HasForeignKey(message => message.ReciverProfileID) 
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Condition>(entity =>

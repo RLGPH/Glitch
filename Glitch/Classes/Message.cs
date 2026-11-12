@@ -5,6 +5,8 @@
         public int ID { get; set; }
 
         public int SenderProfileID { get; set; }
+        
+        public int ReciverProfileID { get; set; }
 
         public string Text { get; set; }
 
