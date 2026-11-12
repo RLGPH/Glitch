@@ -8,10 +8,7 @@ public class RotationService
     private readonly GlitchDbContext _context;
 
     public RotationService(GlitchDbContext context) => _context = context;
-
-    /// <summary>
-    /// Requirement F21: Resets the active swiping view loop by purging positive Likes that haven't matched yet
-    /// </summary>
+    
     public async Task ResetViewingRoundAsync(int profileId)
     {
         // Gather historical likes that didn't materialize into matches
