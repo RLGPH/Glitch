@@ -6,7 +6,7 @@ namespace GlitchTests;
 public sealed class LoginServiceTests
 {
     [Fact]
-    public async Task AuthenticateAsync_ReturnsFailure_WhenEmailOrPasswordIsMissing()
+    public async Task Returns_Failure_When_Email_Or_Password_Is_Missing()
     {
         var service = new LoginService(new TestDbContextFactory());
 
@@ -17,7 +17,7 @@ public sealed class LoginServiceTests
     }
 
     [Fact]
-    public async Task AuthenticateAsync_ReturnsFailure_WhenPasswordIsIncorrect()
+    public async Task Returns_Failure_When_Password_Is_Incorrect()
     {
         var factory = new TestDbContextFactory();
 
@@ -45,7 +45,7 @@ public sealed class LoginServiceTests
     }
 
     [Fact]
-    public async Task AuthenticateAsync_ReturnsSuccess_WithTheUserProfile()
+    public async Task Returns_Success_With_The_User_Profile()
     {
         var factory = new TestDbContextFactory();
 
@@ -78,5 +78,33 @@ public sealed class LoginServiceTests
         Assert.Equal("Login successful.", result.Message);
         Assert.NotNull(result.UserProfile);
         Assert.Equal("Test User", result.UserProfile.DisplayName);
+    }
+
+    [Fact]
+    public async Task Returns_Failure_When_User_Is_Inactive()
+    {
+        var factory = new TestDbContextFactory();
+
+        await using (var context = factory.CreateDbContext())
+        {
+            context.Users.Add(new User
+            {
+                UserID = 1,
+                Email = "inactive@example.com",
+                Password = "correct-password",
+                IsActive = false
+            });
+
+            await context.SaveChangesAsync();
+        }
+
+        var service = new LoginService(factory);
+
+        var result = await service.AuthenticateAsync(
+            "inactive@example.com",
+            "correct-password");
+
+        Assert.False(result.Success);
+        Assert.Equal("Invalid email or password.", result.Message);
     }
 }
