@@ -1,5 +1,384 @@
-@page "/Matches"
 
-<PageTitle>Opdag – GLITCH</PageTitle>
+@page "/matches"
+@rendermode InteractiveServer
+@attribute [Authorize]
 
-<h1>Opdag</h1>
+@using System.Security.Claims
+@using Glitch.Data
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+
+@inject IDbContextFactory<GlitchDbContext> DbFactory
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Mine matches – GLITCH</PageTitle>
+
+<section class="matches-page">
+
+    <header class="matches-header">
+        <h1>Mine matches</h1>
+        <p>Her finder du de personer, hvor interessen er gensidig.</p>
+    </header>
+
+    @if (isLoading)
+    {
+        <p role="status">Henter dine matches...</p>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="matches-empty">
+            <p role="alert">@errorMessage</p>
+
+            <button type="button"
+                    class="btn btn-primary"
+                    @onclick="LoadMatchesAsync">
+                Prøv igen
+            </button>
+        </div>
+    }
+    else if (matches.Count == 0)
+    {
+        <div class="matches-empty">
+
+            <h2>Ingen matches endnu</h2>
+
+            <p>
+                Når du og en anden person liker hinanden,
+                bliver jeres match vist her.
+            </p>
+
+            <button type="button"
+                    class="btn btn-primary"
+                    @onclick="GoToDiscover">
+                Find profiler
+            </button>
+
+        </div>
+    }
+    else
+    {
+        <div class="matches-summary">
+            <h2>Aktive matches</h2>
+            <span class="matches-count">@matches.Count</span>
+        </div>
+
+        <div class="matches-grid">
+
+            @foreach (var match in matches)
+            {
+                <article class="match-card"
+                         @key="match.MatchId">
+
+                    <!-- PROFILBILLEDE -->
+                    <div class="match-photo">
+
+                        @if (!string.IsNullOrWhiteSpace(match.ImagePath))
+                        {
+                            <img src="@match.ImagePath"
+                                 alt="Profilbillede af @match.Name" />
+                        }
+                        else
+                        {
+                            <span aria-hidden="true">
+                                @match.Name[..1]
+                            </span>
+                        }
+
+                    </div>
+
+                    <!-- PROFILOPLYSNINGER -->
+                    <div class="match-info">
+
+                        <h3>@match.Name, @match.Age</h3>
+
+                        <p class="match-bio">
+                            @match.Bio
+                        </p>
+
+                        @if (match.Interests.Count > 0)
+                        {
+                            <div class="match-interests">
+
+                                @foreach (var interest in match.Interests)
+                                {
+                                    <span class="interest-tag"
+                                          @key="interest">
+                                        @interest
+                                    </span>
+                                }
+
+                            </div>
+                        }
+
+                        <p class="match-date">
+                            Matchet:
+                            @match.MatchedAt.ToString("dd-MM-yyyy")
+                        </p>
+
+                    </div>
+
+                    <!-- ÅBN CHAT -->
+                    <div class="match-actions">
+
+                        <button type="button"
+                                class="chat-button"
+                                @onclick="() => OpenChat(match.MatchId)">
+                            💬 Åbn chat
+                        </button>
+
+                    </div>
+
+                </article>
+            }
+
+        </div>
+    }
+
+</section>
+
+@code {
+
+    // Kun en visningsmodel til denne side.
+    // Vi opretter ingen ny databasemodel.
+    private sealed record MatchViewModel(
+        int MatchId,
+        string Name,
+        int Age,
+        string Bio,
+        string ImagePath,
+        List<string> Interests,
+        DateTime MatchedAt
+    );
+
+    private List<MatchViewModel> matches = new();
+
+    private bool isLoading = true;
+
+    private string errorMessage = "";
+
+
+    // ======================================
+    // INDLÆS MATCHES
+    // ======================================
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMatchesAsync();
+    }
+
+    private async Task LoadMatchesAsync()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        try
+        {
+            // Hent den indloggede brugers identitet.
+            var authState =
+                await AuthProvider.GetAuthenticationStateAsync();
+
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated != true ||
+                !int.TryParse(
+                    user.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                    out int userId) ||
+                !int.TryParse(
+                    user.FindFirst("ProfileID")?.Value,
+                    out int profileId))
+            {
+                errorMessage = "Du skal være logget ind.";
+                return;
+            }
+
+            await using var db =
+                await DbFactory.CreateDbContextAsync();
+
+            // Kontrollér, at profilen tilhører brugeren.
+            bool ownProfileExists = await db.Profiles
+                .AsNoTracking()
+                .AnyAsync(p =>
+                    p.ProfileID == profileId &&
+                    p.UserID == userId);
+
+            if (!ownProfileExists)
+            {
+                errorMessage = "Din profil blev ikke fundet.";
+                return;
+            }
+
+            // Hent matches, hvor brugeren deltager.
+            var savedMatches = await db.Matches
+                .AsNoTracking()
+                .Where(m =>
+                    m.ProfileAID == profileId ||
+                    m.ProfileBID == profileId)
+                .OrderByDescending(m => m.CreatedAt)
+                .ToListAsync();
+
+            // Kun aktuelle gensidige Likes tæller
+            // som aktive matches.
+            var swipes = await db.Swipes
+                .AsNoTracking()
+                .Where(s =>
+                    s.IsLiked &&
+                    (s.FromProfileID == profileId ||
+                     s.ToProfileID == profileId))
+                .ToListAsync();
+
+            var activeMatches = savedMatches
+                .Where(m =>
+                {
+                    int otherId = m.ProfileAID == profileId
+                        ? m.ProfileBID
+                        : m.ProfileAID;
+
+                    bool likedByMe = swipes.Any(s =>
+                        s.FromProfileID == profileId &&
+                        s.ToProfileID == otherId);
+
+                    bool likedByOther = swipes.Any(s =>
+                        s.FromProfileID == otherId &&
+                        s.ToProfileID == profileId);
+
+                    return likedByMe && likedByOther;
+                })
+                .ToList();
+
+            if (activeMatches.Count == 0)
+            {
+                matches.Clear();
+                return;
+            }
+
+            // Find ID på personen på den anden side
+            // af hvert match.
+            var otherProfileIds = activeMatches
+                .Select(m => m.ProfileAID == profileId
+                    ? m.ProfileBID
+                    : m.ProfileAID)
+                .Distinct()
+                .ToList();
+
+            // Hent profiloplysninger fra SQLite.
+            var otherProfiles = await db.Profiles
+                .AsNoTracking()
+                .Where(p =>
+                    otherProfileIds.Contains(p.ProfileID))
+                .ToListAsync();
+
+            // Hent fødselsdato og aktiv-status.
+            var otherUserIds = otherProfiles
+                .Select(p => p.UserID)
+                .ToList();
+
+            var users = await db.Users
+                .AsNoTracking()
+                .Where(u => otherUserIds.Contains(u.UserID))
+                .ToDictionaryAsync(u => u.UserID);
+
+            // Hent interesser fra de eksisterende
+            // relationstabeller.
+            var profileInterests = await db.ProfileInterests
+                .AsNoTracking()
+                .Where(pi =>
+                    otherProfileIds.Contains(pi.ProfileID))
+                .Join(
+                    db.Interests,
+                    pi => pi.InterestID,
+                    i => i.InterestID,
+                    (pi, i) => new
+                    {
+                        pi.ProfileID,
+                        i.Name
+                    })
+                .ToListAsync();
+
+            // Lav visningslisten.
+            var result = new List<MatchViewModel>();
+
+            foreach (var match in activeMatches)
+            {
+                int otherId = match.ProfileAID == profileId
+                    ? match.ProfileBID
+                    : match.ProfileAID;
+
+                var otherProfile = otherProfiles
+                    .FirstOrDefault(p => p.ProfileID == otherId);
+
+                if (otherProfile is null)
+                    continue;
+
+                if (!users.TryGetValue(
+                    otherProfile.UserID,
+                    out var otherUser))
+                {
+                    continue;
+                }
+
+                if (!otherUser.IsActive)
+                    continue;
+
+                // Beregn alder fra fødselsdato.
+                var birthDate = otherUser.BirthDate;
+
+                int age = DateTime.Today.Year -
+                          birthDate.Year;
+
+                if (birthDate.Date >
+                    DateTime.Today.AddYears(-age))
+                {
+                    age--;
+                }
+
+                var interests = profileInterests
+                    .Where(i =>
+                        i.ProfileID == otherProfile.ProfileID)
+                    .Select(i => i.Name)
+                    .ToList();
+
+                result.Add(new MatchViewModel(
+                    match.ID,
+                    otherProfile.DisplayName ?? "",
+                    age,
+                    otherProfile.Bio ?? "",
+                    otherProfile.ImagePath ?? "",
+                    interests,
+                    match.CreatedAt
+                ));
+            }
+
+            matches = result;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(ex);
+
+            errorMessage =
+                "Dine matches kunne ikke indlæses.";
+
+            matches.Clear();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+
+    // ======================================
+    // NAVIGATION
+    // ======================================
+
+    private void OpenChat(int matchId)
+    {
+        Navigation.NavigateTo($"/chat/{matchId}");
+    }
+
+    private void GoToDiscover()
+    {
+        Navigation.NavigateTo("/discover");
+    }
+}

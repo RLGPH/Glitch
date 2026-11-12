@@ -1,11 +1,427 @@
+
 @page "/chat/{MatchId:int}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Glitch.Data
+@using Glitch.Methods
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+
+@inject IDbContextFactory<GlitchDbContext> DbFactory
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
 
 <PageTitle>Chat – GLITCH</PageTitle>
 
-<h1>Chat</h1>
-<p>Du har åbnet chatten for match @MatchId.</p>
+<section class="chat-page">
+
+    @if (isLoading)
+    {
+        <p role="status">Henter samtalen...</p>
+    }
+    else if (!string.IsNullOrEmpty(loadError))
+    {
+        <div class="chat-empty">
+            <h1>Chat ikke tilgængelig</h1>
+            <p role="alert">@loadError</p>
+
+            <button type="button"
+                    class="chat-back-button"
+                    @onclick="GoBack">
+                Tilbage til matches
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="chat-container">
+
+            <!-- OVERSKRIFT -->
+            <header class="chat-header">
+
+                <button type="button"
+                        class="chat-back-button"
+                        @onclick="GoBack">
+                    ← Matches
+                </button>
+
+                <div class="chat-person">
+                    <h1>@otherProfileName</h1>
+                    <p>Jeres samtale</p>
+                </div>
+
+            </header>
+
+            <!-- BESKEDOMRÅDE -->
+            <div class="chat-messages"
+                 role="log"
+                 aria-label="Beskeder">
+
+                @if (messages.Count == 0)
+                {
+                    <div class="chat-empty-message">
+                        <h2>Start en samtale</h2>
+
+                        <p>
+                            I har matchet med hinanden.
+                            Send din første besked!
+                        </p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var message in messages)
+                    {
+                        <div class="message-row @(message.FromMe ? "my-message" : "other-message")"
+                             @key="message.Id">
+
+                            <div class="message-bubble">
+
+                                <p>@message.Text</p>
+
+                                <time>
+                                    @message.SentAt.ToLocalTime().ToString("HH:mm")
+                                </time>
+
+                            </div>
+
+                        </div>
+                    }
+                }
+
+            </div>
+
+            <!-- STATUS -->
+            @if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                <p class="chat-status" role="status">
+                    @statusMessage
+                </p>
+            }
+
+            <!-- SKRIV BESKED -->
+            <div class="chat-compose">
+
+                <label for="chat-message">
+                    Din besked
+                </label>
+
+                <textarea id="chat-message"
+                          class="chat-input"
+                          rows="3"
+                          maxlength="4000"
+                          placeholder="Skriv en besked..."
+                          @bind="newMessage"
+                          @bind:event="oninput"
+                          disabled="@isSending">
+                </textarea>
+
+                <button type="button"
+                        class="chat-send-button"
+                        disabled="@(isSending || string.IsNullOrWhiteSpace(newMessage))"
+                        @onclick="SendMessageAsync">
+
+                    @(isSending ? "Sender..." : "Send besked")
+
+                </button>
+
+            </div>
+
+            <p class="chat-note">
+                Nye beskeder gemmes i databasen.
+                Tidligere beskeder og liveopdatering mellem
+                brugere kræver den sidste backendintegration.
+            </p>
+
+        </div>
+    }
+
+</section>
 
 @code {
+
+    // Match-ID fra adressen /chat/1.
     [Parameter]
     public int MatchId { get; set; }
+
+    // Visningsmodel - ikke en databasemodel.
+    private sealed record ChatMessageView(
+        int Id,
+        bool FromMe,
+        string Text,
+        DateTime SentAt
+    );
+
+    // Brugerens profil og modpartens profil.
+    private int currentProfileId;
+    private int otherProfileId;
+
+    private string otherProfileName = "";
+
+    // Beskeder sendt i den aktuelle visning.
+    private List<ChatMessageView> messages = new();
+
+    private string newMessage = "";
+    private string statusMessage = "";
+    private string loadError = "";
+
+    private bool isLoading = true;
+    private bool isSending = false;
+
+
+    // =========================================
+    // HENT MATCH OG KONTROLLÉR ADGANG
+    // =========================================
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+        loadError = "";
+        statusMessage = "";
+        messages.Clear();
+
+        try
+        {
+            var authState =
+                await AuthProvider.GetAuthenticationStateAsync();
+
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated != true ||
+                !int.TryParse(
+                    user.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                    out int userId) ||
+                !int.TryParse(
+                    user.FindFirst("ProfileID")?.Value,
+                    out int profileId))
+            {
+                loadError = "Du skal være logget ind.";
+                return;
+            }
+
+            await using var db =
+                await DbFactory.CreateDbContextAsync();
+
+            // Kontrollér ejerskab af egen profil.
+            bool ownsProfile = await db.Profiles
+                .AsNoTracking()
+                .AnyAsync(p =>
+                    p.ProfileID == profileId &&
+                    p.UserID == userId);
+
+            if (!ownsProfile)
+            {
+                loadError = "Din profil blev ikke fundet.";
+                return;
+            }
+
+            // Hent det match, som URL'en henviser til.
+            var match = await db.Matches
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m =>
+                    m.ID == MatchId &&
+                    (m.ProfileAID == profileId ||
+                     m.ProfileBID == profileId));
+
+            if (match is null)
+            {
+                loadError =
+                    "Du har ikke adgang til denne samtale.";
+                return;
+            }
+
+            // Find den anden bruger i matchet.
+            int targetProfileId =
+                match.ProfileAID == profileId
+                    ? match.ProfileBID
+                    : match.ProfileAID;
+
+            // Begge aktuelle likes skal stadig findes.
+            if (!await HasMutualLikeAsync(
+                db, profileId, targetProfileId))
+            {
+                loadError =
+                    "Dette match er ikke længere aktivt.";
+                return;
+            }
+
+            var otherProfile = await db.Profiles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p =>
+                    p.ProfileID == targetProfileId);
+
+            if (otherProfile is null)
+            {
+                loadError =
+                    "Den anden profil blev ikke fundet.";
+                return;
+            }
+
+            currentProfileId = profileId;
+            otherProfileId = targetProfileId;
+            otherProfileName = otherProfile.DisplayName;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(ex);
+            loadError = "Chatten kunne ikke åbnes.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+
+    // =========================================
+    // KONTROLLÉR GENSIDIGT LIKE
+    // =========================================
+
+    private static async Task<bool> HasMutualLikeAsync(
+        GlitchDbContext db,
+        int profileId,
+        int targetProfileId)
+    {
+        bool likedByMe = await db.Swipes
+            .AsNoTracking()
+            .AnyAsync(s =>
+                s.FromProfileID == profileId &&
+                s.ToProfileID == targetProfileId &&
+                s.IsLiked);
+
+        bool likedByOther = await db.Swipes
+            .AsNoTracking()
+            .AnyAsync(s =>
+                s.FromProfileID == targetProfileId &&
+                s.ToProfileID == profileId &&
+                s.IsLiked);
+
+        return likedByMe && likedByOther;
+    }
+
+
+    // =========================================
+    // SEND EN RIGTIG BESKED
+    // =========================================
+
+    private async Task SendMessageAsync()
+    {
+        if (isSending)
+            return;
+
+        string text = newMessage.Trim();
+
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        if (text.Length > 4000)
+        {
+            statusMessage =
+                "Beskeden må højst være 4000 tegn.";
+            return;
+        }
+
+        isSending = true;
+        statusMessage = "";
+
+        try
+        {
+            var authState =
+                await AuthProvider.GetAuthenticationStateAsync();
+
+            var user = authState.User;
+
+            // Kontrollér loginidentiteten ved hver afsendelse.
+            if (user.Identity?.IsAuthenticated != true ||
+                !int.TryParse(
+                    user.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                    out int userId) ||
+                !int.TryParse(
+                    user.FindFirst("ProfileID")?.Value,
+                    out int profileId) ||
+                profileId != currentProfileId)
+            {
+                statusMessage = "Din loginstatus er ikke gyldig.";
+                return;
+            }
+
+            await using var db =
+                await DbFactory.CreateDbContextAsync();
+
+            bool ownsProfile = await db.Profiles
+                .AsNoTracking()
+                .AnyAsync(p =>
+                    p.ProfileID == profileId &&
+                    p.UserID == userId);
+
+            bool matchExists = await db.Matches
+                .AsNoTracking()
+                .AnyAsync(m =>
+                    m.ID == MatchId &&
+                    ((m.ProfileAID == profileId &&
+                      m.ProfileBID == otherProfileId) ||
+                     (m.ProfileBID == profileId &&
+                      m.ProfileAID == otherProfileId)));
+
+            if (!ownsProfile ||
+                !matchExists ||
+                !await HasMutualLikeAsync(
+                    db, profileId, otherProfileId))
+            {
+                statusMessage =
+                    "Du kan ikke længere sende beskeder i denne samtale.";
+                return;
+            }
+
+            // Genbrug backendgruppens Messaging-metode.
+            var messaging = new Messaging(db);
+
+            var savedMessage = await messaging.SaveMessageAsync(
+                currentProfileId,
+                otherProfileId,
+                text
+            );
+
+            if (savedMessage is null)
+            {
+                statusMessage =
+                    "Beskeden kunne ikke sendes.";
+                return;
+            }
+
+            // Vis den gemte besked i den aktuelle chat.
+            messages.Add(new ChatMessageView(
+                savedMessage.ID,
+                true,
+                savedMessage.Text,
+                savedMessage.SentAt
+            ));
+
+            newMessage = "";
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(ex);
+
+            statusMessage =
+                "Der opstod en fejl under afsendelse. Prøv igen.";
+        }
+        finally
+        {
+            isSending = false;
+        }
+    }
+
+
+    // =========================================
+    // TILBAGE TIL MATCHES
+    // =========================================
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/matches");
+    }
 }

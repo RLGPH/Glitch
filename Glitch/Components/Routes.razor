@@ -1,6 +1,39 @@
-﻿<Router AppAssembly="typeof(Program).Assembly">
+﻿
+@using Microsoft.AspNetCore.Components.Authorization
+
+<Router AppAssembly="typeof(Program).Assembly">
+
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)"/>
-        <FocusOnNavigate RouteData="routeData" Selector="h1"/>
+
+        <AuthorizeRouteView RouteData="routeData"
+                            DefaultLayout="typeof(Layout.MainLayout)">
+
+            <NotAuthorized>
+                <section class="container py-5 text-center">
+
+                    <h1>Du skal være logget ind</h1>
+
+                    <p>
+                        Log ind på GLITCH for at få adgang
+                        til denne side.
+                    </p>
+
+                    <a href="/login" class="btn btn-primary">
+                        Log ind
+                    </a>
+
+                </section>
+            </NotAuthorized>
+
+            <Authorizing>
+                <p>Kontrollerer loginstatus...</p>
+            </Authorizing>
+
+        </AuthorizeRouteView>
+
+        <FocusOnNavigate RouteData="routeData"
+                         Selector="h1" />
+
     </Found>
+
 </Router>

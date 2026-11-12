@@ -1,0 +1,459 @@
+
+/* ==========================================
+   GLITCH - DISCOVER
+   Opdag profiler, filtrering og swipe
+   ========================================== */
+
+/* SIDE */
+
+.discover-page {
+    max-width: 850px;
+    margin: 0 auto;
+    padding: 24px 16px;
+
+    /* Undgå vandret scrolling ved swipe */
+    overflow-x: clip;
+}
+
+.discover-header {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.discover-header h1 {
+    margin-bottom: 8px;
+}
+
+
+/* ==========================================
+   FILTRE
+   ========================================== */
+
+.filter-card {
+    background: var(--color-surface, white);
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 32px;
+}
+
+.filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.filter-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.filter-group {
+    border: none;
+    padding: 0;
+    margin: 0 0 20px;
+    min-width: 0;
+}
+
+.filter-group legend {
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.filter-description {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.filter-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.filter-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.filter-option:hover {
+    background: var(--color-background, #fff5fa);
+}
+
+.filter-option:focus-within {
+    outline: 2px solid var(--color-focus, #6495ed);
+    outline-offset: 2px;
+}
+
+.filter-option input {
+    accent-color: #bb528c;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+
+/* ==========================================
+   PROFILKORT
+   ========================================== */
+
+.discover-card {
+    position: relative;
+    max-width: 470px;
+    margin: 0 auto;
+
+    background: var(--color-surface, white);
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 20px;
+    overflow: hidden;
+
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+
+    /* Bruges af swipe-animationen */
+    transform-origin: center center;
+    will-change: transform;
+}
+
+
+/* ==========================================
+   SWIPE-OMRÅDE
+   ========================================== */
+
+.swipe-surface {
+    cursor: grab;
+
+    /* Tillad lodret scrolling på mobil */
+    touch-action: pan-y;
+
+    /* Undgå tekstmarkering under træk */
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.swipe-surface:active {
+    cursor: grabbing;
+}
+
+/* Forhindrer separat billedtræk */
+.swipe-surface img {
+    pointer-events: none;
+    -webkit-user-drag: none;
+}
+
+
+/* ==========================================
+   PROFILBILLEDE
+   ========================================== */
+
+.profile-photo {
+    height: 250px;
+
+    background: linear-gradient(
+        135deg,
+        #f3bfd9,
+        #d5eafb
+    );
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-photo span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 120px;
+    height: 120px;
+
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 50%;
+
+    font-size: 4rem;
+    font-weight: 700;
+    color: #343044;
+}
+
+
+/* ==========================================
+   PROFILINFORMATION
+   ========================================== */
+
+.profile-info {
+    padding: 24px;
+}
+
+.profile-info h2 {
+    margin-bottom: 12px;
+}
+
+.profile-info h3 {
+    font-size: 1rem;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+.profile-bio {
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+
+/* ==========================================
+   INTERESSER OG DIAGNOSER
+   ========================================== */
+
+.profile-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.profile-tag {
+    background: #f3bfd9;
+    color: #343044;
+
+    padding: 7px 12px;
+    border-radius: 20px;
+
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+}
+
+
+/* ==========================================
+   LIKE / NEJ TAK - KNAPPER
+   ========================================== */
+
+.discover-actions {
+    display: flex;
+    gap: 16px;
+    padding: 0 24px 24px;
+}
+
+.discover-actions button {
+    flex: 1;
+    min-width: 0;
+    min-height: 52px;
+    padding: 12px;
+
+    border: none;
+    border-radius: 12px;
+
+    font: inherit;
+    font-weight: 600;
+
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.reject-button {
+    background: #f5e5e7;
+    color: #922b3a;
+}
+
+.like-button {
+    background: #f3bfd9;
+    color: #343044;
+}
+
+.discover-actions button:hover:not(:disabled) {
+    filter: brightness(0.95);
+}
+
+.discover-actions button:focus-visible {
+    outline: 3px solid var(--color-focus, #6495ed);
+    outline-offset: 3px;
+}
+
+.discover-actions button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+
+/* ==========================================
+   SWIPE-INDIKATOR
+   ========================================== */
+
+.swipe-indicator {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 5;
+
+    padding: 10px 18px;
+
+    border: 4px solid;
+    border-radius: 12px;
+
+    background: rgba(255, 255, 255, 0.92);
+
+    font-size: 1.5rem;
+    font-weight: 800;
+
+    transform: rotate(-12deg);
+
+    /* Må ikke blokere pointer-events */
+    pointer-events: none;
+}
+
+.indicator-like {
+    color: #16834d;
+    border-color: #16834d;
+}
+
+.indicator-nope {
+    color: #c0344b;
+    border-color: #c0344b;
+}
+
+
+/* ==========================================
+   TOM PROFILLISTE
+   ========================================== */
+
+.empty-state {
+    max-width: 470px;
+    margin: 0 auto;
+
+    text-align: center;
+    padding: 40px 24px;
+
+    background: var(--color-surface, white);
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 20px;
+}
+
+.empty-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.empty-actions button {
+    min-height: 44px;
+}
+
+
+/* ==========================================
+   STATUSBESKEDER
+   ========================================== */
+
+.discover-status {
+    max-width: 470px;
+    margin: 16px auto;
+    padding: 12px;
+
+    text-align: center;
+    border-radius: 10px;
+
+    background: var(--color-surface, white);
+}
+
+
+/* ==========================================
+   TABLET OG MINDRE SKÆRME
+   ========================================== */
+
+@media (max-width: 650px) {
+
+    .filter-options {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .filter-card {
+        padding: 20px;
+    }
+}
+
+
+/* ==========================================
+   MOBIL - 375 PX
+   ========================================== */
+
+@media (max-width: 480px) {
+
+    .discover-page {
+        padding: 16px 8px;
+    }
+
+    .discover-header {
+        margin-bottom: 20px;
+    }
+
+    .filter-card {
+        padding: 16px;
+        margin-bottom: 24px;
+    }
+
+    .filter-header {
+        flex-wrap: wrap;
+    }
+
+    .filter-options {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-photo {
+        height: 200px;
+    }
+
+    .profile-photo span {
+        width: 100px;
+        height: 100px;
+        font-size: 3rem;
+    }
+
+    .profile-info {
+        padding: 16px;
+    }
+
+    .discover-actions {
+        padding: 0 16px 16px;
+        gap: 10px;
+    }
+
+    .discover-actions button {
+        min-height: 48px;
+        padding: 10px;
+    }
+
+    .swipe-indicator {
+        top: 12px;
+        left: 12px;
+        padding: 8px 12px;
+        font-size: 1.1rem;
+    }
+
+    .empty-state {
+        padding: 28px 16px;
+    }
+}
+
+
+/* ==========================================
+   TILGÆNGELIGHED
+   Reducer animation ved brugerønske
+   ========================================== */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .discover-card {
+        transition-duration: 0.01ms !important;
+    }
+
+    .discover-actions button {
+        transition: none;
+    }
+}

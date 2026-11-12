@@ -17,6 +17,46 @@ namespace Glitch.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.22");
 
+            modelBuilder.Entity("Glitch.Classes.Condition", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsCustom")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ID");
+
+                    b.ToTable("Conditions");
+                });
+
+            modelBuilder.Entity("Glitch.Classes.Interest", b =>
+                {
+                    b.Property<int>("InterestID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("InterestID");
+
+                    b.ToTable("Interests");
+                });
+
             modelBuilder.Entity("Glitch.Classes.Match", b =>
                 {
                     b.Property<int>("ID")
@@ -41,6 +81,33 @@ namespace Glitch.Migrations
                     b.ToTable("Matches");
                 });
 
+            modelBuilder.Entity("Glitch.Classes.Message", b =>
+                {
+                    b.Property<int>("ID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SenderProfileID")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ID");
+
+                    b.HasIndex("SenderProfileID");
+
+                    b.ToTable("Messages");
+                });
+
             modelBuilder.Entity("Glitch.Classes.Profile", b =>
                 {
                     b.Property<int>("ProfileID")
@@ -49,6 +116,7 @@ namespace Glitch.Migrations
 
                     b.Property<string>("Bio")
                         .IsRequired()
+                        .HasMaxLength(2000)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
@@ -61,6 +129,7 @@ namespace Glitch.Migrations
 
                     b.Property<string>("ImagePath")
                         .IsRequired()
+                        .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("LastUpdatedAt")
@@ -77,6 +146,36 @@ namespace Glitch.Migrations
                     b.ToTable("Profiles");
                 });
 
+            modelBuilder.Entity("Glitch.Classes.ProfileCondition", b =>
+                {
+                    b.Property<int>("Profilefield")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ConditionID")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Profilefield", "ConditionID");
+
+                    b.HasIndex("ConditionID");
+
+                    b.ToTable("ProfileConditions");
+                });
+
+            modelBuilder.Entity("Glitch.Classes.ProfileInterest", b =>
+                {
+                    b.Property<int>("ProfileID")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("InterestID")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("ProfileID", "InterestID");
+
+                    b.HasIndex("InterestID");
+
+                    b.ToTable("ProfileInterests");
+                });
+
             modelBuilder.Entity("Glitch.Classes.Swipe", b =>
                 {
                     b.Property<int>("ID")
@@ -86,7 +185,7 @@ namespace Glitch.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("FromPrifileID")
+                    b.Property<int>("FromProfileID")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsLiked")
@@ -97,9 +196,10 @@ namespace Glitch.Migrations
 
                     b.HasKey("ID");
 
-                    b.HasIndex("FromPrifileID");
-
                     b.HasIndex("ToProfileID");
+
+                    b.HasIndex("FromProfileID", "ToProfileID")
+                        .IsUnique();
 
                     b.ToTable("Swipes");
                 });
@@ -151,6 +251,15 @@ namespace Glitch.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Glitch.Classes.Message", b =>
+                {
+                    b.HasOne("Glitch.Classes.Profile", null)
+                        .WithMany()
+                        .HasForeignKey("SenderProfileID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Glitch.Classes.Profile", b =>
                 {
                     b.HasOne("Glitch.Classes.User", null)
@@ -160,11 +269,41 @@ namespace Glitch.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Glitch.Classes.ProfileCondition", b =>
+                {
+                    b.HasOne("Glitch.Classes.Condition", null)
+                        .WithMany()
+                        .HasForeignKey("ConditionID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Glitch.Classes.Profile", null)
+                        .WithMany()
+                        .HasForeignKey("Profilefield")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Glitch.Classes.ProfileInterest", b =>
+                {
+                    b.HasOne("Glitch.Classes.Interest", null)
+                        .WithMany()
+                        .HasForeignKey("InterestID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Glitch.Classes.Profile", null)
+                        .WithMany()
+                        .HasForeignKey("ProfileID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Glitch.Classes.Swipe", b =>
                 {
                     b.HasOne("Glitch.Classes.Profile", null)
                         .WithMany()
-                        .HasForeignKey("FromPrifileID")
+                        .HasForeignKey("FromProfileID")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 

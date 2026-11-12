@@ -1,5 +1,159 @@
-@page "/Account"
 
-<PageTitle>Opdag – GLITCH</PageTitle>
+@page "/account"
+@rendermode InteractiveServer
+@attribute [Authorize]
 
-<h1>Opdag</h1>
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Min konto – GLITCH</PageTitle>
+
+<section class="account-page">
+
+    <header class="account-header">
+        <h1>Min konto</h1>
+        <p>Administrer din konto og din profil.</p>
+    </header>
+
+    <!-- KONTOOPLYSNINGER -->
+    <section class="account-card">
+
+        <h2>Kontooplysninger</h2>
+
+        <div class="account-info">
+
+            <div class="account-info-row">
+                <span class="info-label">Email</span>
+
+                <span class="info-value">
+                    @userEmail
+                </span>
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- REDIGER PROFIL -->
+    <section class="account-card">
+
+        <h2>Min profil</h2>
+
+        <p class="section-description">
+            Rediger dit profilbillede, navn, beskrivelse,
+            interesser og diagnoser.
+        </p>
+
+        <button type="button"
+                class="account-button primary-button"
+                @onclick="GoToProfile">
+            Rediger min profil
+        </button>
+
+    </section>
+
+    <!-- SLET KONTO -->
+    <section class="account-card danger-section">
+
+        <h2>Slet konto</h2>
+
+        <p class="section-description">
+            Du kan slette din Glitch-konto.
+            Det vil også fjerne de oplysninger,
+            der er knyttet til kontoen.
+        </p>
+
+        <button type="button"
+                class="account-button danger-button"
+                @onclick="ShowDeleteConfirmation">
+            Slet min konto
+        </button>
+
+    </section>
+
+</section>
+
+<!-- BEKRÆFTELSE AF SLETNING -->
+@if (showDeleteConfirmation)
+{
+    <div class="modal-overlay" role="presentation">
+
+        <div class="delete-modal"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="delete-title"
+             aria-describedby="delete-description">
+
+            <h2 id="delete-title">
+                Vil du slette din konto?
+            </h2>
+
+            <p id="delete-description">
+                Sletning af kontoen vil være permanent.
+                Din profil, dine matches og tilknyttede
+                beskeder skal også slettes.
+            </p>
+
+            <p class="delete-warning">
+                Kontosletning er endnu ikke tilsluttet
+                backend. Ingen oplysninger bliver slettet nu.
+            </p>
+
+            <div class="modal-actions">
+
+                <button type="button"
+                        class="account-button secondary-button"
+                        @onclick="CancelDelete">
+                    Annuller
+                </button>
+
+                <button type="button"
+                        class="account-button danger-button"
+                        disabled>
+                    Bekræft sletning
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+}
+
+@code {
+
+    private string userEmail = "";
+    private bool showDeleteConfirmation = false;
+
+    // Hent email fra den eksisterende login-session.
+    protected override async Task OnInitializedAsync()
+    {
+        var authState =
+            await AuthProvider.GetAuthenticationStateAsync();
+
+        userEmail = authState.User
+            .FindFirst(ClaimTypes.Email)?.Value
+            ?? "Email ikke fundet";
+    }
+
+    // Åbn den eksisterende profilside.
+    private void GoToProfile()
+    {
+        Navigation.NavigateTo("/my-profile");
+    }
+
+    // Vis bekræftelse før kontosletning.
+    private void ShowDeleteConfirmation()
+    {
+        showDeleteConfirmation = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirmation = false;
+    }
+}
