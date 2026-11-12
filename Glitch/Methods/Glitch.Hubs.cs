@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Glitch.Classes;
@@ -9,46 +11,149 @@ using Glitch.Data;
 
 namespace Glitch.Hubs;
 
+[Authorize]
 public class ChatHub : Hub
 {
-    private readonly GlitchDbContext _context;
+    private readonly IDbContextFactory<GlitchDbContext> _dbFactory;
 
-    public ChatHub(GlitchDbContext context) => _context = context;
-    
-    public async Task SendMessage(int senderProfileId, int reciverProfileId, string text)
+    public ChatHub(IDbContextFactory<GlitchDbContext> dbFactory)
     {
-        // Verify active match exists between sender and receiver
-        bool isMatched = await _context.Matches.AnyAsync(m => 
-            (m.ProfileAID == senderProfileId && m.ProfileBID == reciverProfileId) || 
-            (m.ProfileAID == reciverProfileId && m.ProfileBID == senderProfileId));
+        _dbFactory = dbFactory;
+    }
+
+    // Hent profil-ID fra den indloggede brugers cookie
+    private int GetCurrentProfileId()
+    {
+        var profileId = Context.User?.FindFirst("ProfileID")?.Value;
+
+        if (!int.TryParse(profileId, out int id))
+        {
+            throw new HubException("Brugeren er ikke logget ind.");
+        }
+
+        return id;
+    }
+
+    // Tilføj brugeren til sin egen SignalR-gruppe
+    public override async Task OnConnectedAsync()
+    {
+        int profileId = GetCurrentProfileId();
+
+        await Groups.AddToGroupAsync(
+            Context.ConnectionId,
+            $"profile-{profileId}"
+        );
+
+        await base.OnConnectedAsync();
+    }
+
+    // Kontrollér, at profilerne har et aktivt match
+    private static async Task<bool> HasActiveMatchAsync(
+        GlitchDbContext db,
+        int profileAId,
+        int profileBId)
+    {
+        bool matchExists = await db.Matches.AnyAsync(m =>
+            (m.ProfileAID == profileAId && m.ProfileBID == profileBId) ||
+            (m.ProfileAID == profileBId && m.ProfileBID == profileAId));
+
+        if (!matchExists)
+        {
+            return false;
+        }
+
+        // Begge profiler skal stadig have et aktivt Like
+        bool aLikesB = await db.Swipes.AnyAsync(s =>
+            s.FromProfileID == profileAId &&
+            s.ToProfileID == profileBId &&
+            s.IsLiked);
+
+        bool bLikesA = await db.Swipes.AnyAsync(s =>
+            s.FromProfileID == profileBId &&
+            s.ToProfileID == profileAId &&
+            s.IsLiked);
+
+        return aLikesB && bLikesA;
+    }
+
+    // Send en besked til et aktivt match
+    public async Task SendMessage(int receiverProfileId, string text)
+    {
+        int senderProfileId = GetCurrentProfileId();
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new HubException("Beskeden må ikke være tom.");
+        }
+
+        await using var db = await _dbFactory.CreateDbContextAsync();
+
+        bool isMatched = await HasActiveMatchAsync(
+            db,
+            senderProfileId,
+            receiverProfileId
+        );
 
         if (!isMatched)
         {
-            throw new HubException("Access Denied: You can only message active matches.");
+            throw new HubException(
+                "Du kan kun sende beskeder til aktive matches."
+            );
         }
 
-        // Persist message to the database
         var newMessage = new Message
         {
             SenderProfileID = senderProfileId,
-            ReceiverProfileID = reciverProfileId,
-            Text = text,
+            ReceiverProfileID = receiverProfileId,
+            Text = text.Trim(),
             SentAt = DateTime.UtcNow,
             IsRead = false
         };
 
-        _context.Messages.Add(newMessage);
-        await _context.SaveChangesAsync();
+        db.Messages.Add(newMessage);
+        await db.SaveChangesAsync();
 
-        // Broadcast to connected clients
-        await Clients.All.SendAsync("ReceiveMessage", newMessage);
+        // Send kun til de to profiler i samtalen
+        await Clients.Groups(
+            $"profile-{senderProfileId}",
+            $"profile-{receiverProfileId}"
+        ).SendAsync("ReceiveMessage", new
+        {
+            newMessage.ID,
+            newMessage.SenderProfileID,
+            newMessage.ReceiverProfileID,
+            newMessage.Text,
+            newMessage.SentAt
+        });
     }
-    
-    public async Task<List<Message>> GetChatHistoryAsync(int profileAId, int profileBId)
+
+    // Hent historikken mellem brugeren og et aktivt match
+    public async Task<List<Message>> GetChatHistoryAsync(int otherProfileId)
     {
-        return await _context.Messages
-            .Where(m => (m.SenderProfileID == profileAId && m.ReceiverProfileID == profileBId) ||
-                        (m.SenderProfileID == profileBId && m.ReceiverProfileID == profileAId))
+        int currentProfileId = GetCurrentProfileId();
+
+        await using var db = await _dbFactory.CreateDbContextAsync();
+
+        bool isMatched = await HasActiveMatchAsync(
+            db,
+            currentProfileId,
+            otherProfileId
+        );
+
+        if (!isMatched)
+        {
+            throw new HubException(
+                "Du har ikke adgang til denne samtale."
+            );
+        }
+
+        return await db.Messages
+            .AsNoTracking()
+            .Where(m =>
+                (m.SenderProfileID == currentProfileId &&
+                 m.ReceiverProfileID == otherProfileId) ||
+                (m.SenderProfileID == otherProfileId &&
+                 m.ReceiverProfileID == currentProfileId))
             .OrderBy(m => m.SentAt)
             .ToListAsync();
     }

@@ -4,6 +4,7 @@ using Glitch.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
+using Glitch.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,6 +40,7 @@ builder.Services
 // Autorisation og loginstatus i Blazor
 builder.Services.AddAuthorization();
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -65,6 +67,9 @@ app.MapStaticAssets();
 // Blazor-komponenter
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+    
+// SignalR endpoint til chat
+app.MapHub<ChatHub>("/chathub").RequireAuthorization();
 
 // Logout
 app.MapPost("/auth/logout", async (HttpContext context) =>

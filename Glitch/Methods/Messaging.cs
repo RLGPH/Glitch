@@ -16,14 +16,33 @@ public class Messaging
     {
         _context = context;
     }
-    
+
     public async Task<bool> IsChatAllowedAsync(int currentProfileId, int targetProfileId)
     {
-        return await _context.Matches.AnyAsync(m => 
+        // Verify that a match exists between the two profiles
+        bool matchExists = await _context.Matches.AnyAsync(m =>
             (m.ProfileAID == currentProfileId && m.ProfileBID == targetProfileId) ||
             (m.ProfileAID == targetProfileId && m.ProfileBID == currentProfileId));
+
+        if (!matchExists)
+        {
+            return false;
+        }
+
+        // Verify that both profiles still have an active Like
+        bool currentLikesTarget = await _context.Swipes.AnyAsync(s =>
+            s.FromProfileID == currentProfileId &&
+            s.ToProfileID == targetProfileId &&
+            s.IsLiked);
+
+        bool targetLikesCurrent = await _context.Swipes.AnyAsync(s =>
+            s.FromProfileID == targetProfileId &&
+            s.ToProfileID == currentProfileId &&
+            s.IsLiked);
+
+        return currentLikesTarget && targetLikesCurrent;
     }
-    
+
     public async Task<List<Message>> GetChatHistoryAsync(int currentProfileId, int targetProfileId)
     {
         //Guard check to ensure unauthorized users cannot peek into chats
@@ -34,16 +53,16 @@ public class Messaging
 
         //Fetch all messages sent between these two profiles
         return await _context.Messages
-            .Where(msg => 
-                (msg.SenderProfileID == currentProfileId && _context.Swipes.Any(s => s.FromProfileID == currentProfileId && s.ToProfileID == targetProfileId)) || 
-                (msg.SenderProfileID == targetProfileId && _context.Swipes.Any(s => s.FromProfileID == targetProfileId && s.ToProfileID == currentProfileId))
-            )
-            
-            .Where(msg => msg.SenderProfileID == currentProfileId || msg.SenderProfileID == targetProfileId)
+            .Where(msg =>
+                (msg.SenderProfileID == currentProfileId &&
+                 msg.ReceiverProfileID == targetProfileId) ||
+
+                (msg.SenderProfileID == targetProfileId &&
+                 msg.ReceiverProfileID == currentProfileId))
             .OrderBy(msg => msg.SentAt)
             .ToListAsync();
     }
-    
+
     public async Task<Message?> SaveMessageAsync(int senderProfileId, int receiverProfileId, string text)
     {
         //Enforce match security before persisting records
@@ -61,7 +80,7 @@ public class Messaging
         {
             SenderProfileID = senderProfileId,
             ReceiverProfileID = receiverProfileId,
-            Text = text,
+            Text = text.Trim(),
             SentAt = DateTime.UtcNow,
             IsRead = false
         };
