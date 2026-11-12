@@ -34,7 +34,7 @@ public class ProfileManagementService
 
         // 3. ADD MESSAGE DELETION RIGHT HERE (Before Matches and Profile!)
         var messages = _context.Messages
-            .Where(m => m.SenderProfileID == profileId || m.ReciverProfileID == profileId);
+            .Where(m => m.SenderProfileID == profileId || m.ReceiverProfileID == profileId);
         _context.Messages.RemoveRange(messages);
 
         // 4. Clear matches

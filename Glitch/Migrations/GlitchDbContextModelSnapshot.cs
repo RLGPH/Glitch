@@ -90,6 +90,9 @@ namespace Glitch.Migrations
                     b.Property<bool>("IsRead")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("ReceiverProfileID")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("SenderProfileID")
                         .HasColumnType("INTEGER");
 
@@ -102,6 +105,8 @@ namespace Glitch.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("ID");
+
+                    b.HasIndex("ReceiverProfileID");
 
                     b.HasIndex("SenderProfileID");
 
@@ -253,6 +258,12 @@ namespace Glitch.Migrations
 
             modelBuilder.Entity("Glitch.Classes.Message", b =>
                 {
+                    b.HasOne("Glitch.Classes.Profile", null)
+                        .WithMany()
+                        .HasForeignKey("ReceiverProfileID")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Glitch.Classes.Profile", null)
                         .WithMany()
                         .HasForeignKey("SenderProfileID")

@@ -60,6 +60,7 @@ public class Messaging
         var newMessage = new Message
         {
             SenderProfileID = senderProfileId,
+            ReceiverProfileID = receiverProfileId,
             Text = text,
             SentAt = DateTime.UtcNow,
             IsRead = false

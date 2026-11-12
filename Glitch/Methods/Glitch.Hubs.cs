@@ -31,7 +31,7 @@ public class ChatHub : Hub
         var newMessage = new Message
         {
             SenderProfileID = senderProfileId,
-            ReciverProfileID = reciverProfileId,
+            ReceiverProfileID = reciverProfileId,
             Text = text,
             SentAt = DateTime.UtcNow,
             IsRead = false
@@ -47,8 +47,8 @@ public class ChatHub : Hub
     public async Task<List<Message>> GetChatHistoryAsync(int profileAId, int profileBId)
     {
         return await _context.Messages
-            .Where(m => (m.SenderProfileID == profileAId && m.ReciverProfileID == profileBId) ||
-                        (m.SenderProfileID == profileBId && m.ReciverProfileID == profileAId))
+            .Where(m => (m.SenderProfileID == profileAId && m.ReceiverProfileID == profileBId) ||
+                        (m.SenderProfileID == profileBId && m.ReceiverProfileID == profileAId))
             .OrderBy(m => m.SentAt)
             .ToListAsync();
     }

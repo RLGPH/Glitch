@@ -112,7 +112,7 @@ public sealed class GlitchDbContext(DbContextOptions<GlitchDbContext> options) :
             
             entity.HasOne<Profile>()
                 .WithMany()
-                .HasForeignKey(message => message.ReciverProfileID) 
+                .HasForeignKey(msg => msg.ReceiverProfileID) 
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
