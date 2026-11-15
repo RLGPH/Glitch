@@ -1,10 +1,11 @@
-
 using Glitch.Components;
 using Glitch.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Glitch.Hubs;
+using Glitch.Methods;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -67,9 +68,10 @@ app.MapStaticAssets();
 // Blazor-komponenter
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
-    
+
 // SignalR endpoint til chat
-app.MapHub<ChatHub>("/chathub").RequireAuthorization();
+app.MapHub<ChatHub>("/chathub")
+    .RequireAuthorization();
 
 // Logout
 app.MapPost("/auth/logout", async (HttpContext context) =>
@@ -82,5 +84,95 @@ app.MapPost("/auth/logout", async (HttpContext context) =>
 })
 .RequireAuthorization();
 
-app.Run();
 
+// =========================================
+// DELETE USER ACCOUNT
+// =========================================
+
+// Delete the signed-in account and its related data
+app.MapPost("/auth/delete-account", async (
+    HttpContext context,
+    IDbContextFactory<GlitchDbContext> dbFactory,
+    IWebHostEnvironment environment) =>
+{
+    // Get the authenticated user's ID
+    if (!int.TryParse(
+        context.User.FindFirstValue(ClaimTypes.NameIdentifier),
+        out int userId))
+    {
+        return Results.Forbid();
+    }
+
+    await using var db =
+        await dbFactory.CreateDbContextAsync();
+
+    // Find the user's uploaded profile image
+    string? imagePath = await db.Profiles
+        .Where(p => p.UserID == userId)
+        .Select(p => p.ImagePath)
+        .FirstOrDefaultAsync();
+
+    // Delete the user account and related database records
+    bool deleted = await new AccountUpdate(db)
+        .DeleteUserAccountAsync(userId);
+
+    if (!deleted)
+    {
+        return Results.NotFound(
+            "Kontoen blev ikke fundet."
+        );
+    }
+
+    // Delete the uploaded profile image
+    if (!string.IsNullOrWhiteSpace(imagePath) &&
+        imagePath.StartsWith(
+            "/profile-images/",
+            StringComparison.Ordinal) &&
+        !string.IsNullOrWhiteSpace(environment.WebRootPath))
+    {
+        string fileName = Path.GetFileName(imagePath);
+
+        if (!string.IsNullOrWhiteSpace(fileName))
+        {
+            string filePath = Path.Combine(
+                environment.WebRootPath,
+                "profile-images",
+                fileName
+            );
+
+            try
+            {
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                }
+            }
+            catch (IOException ex)
+            {
+                // Log image deletion failures
+                app.Logger.LogWarning(
+                    ex,
+                    "Could not remove deleted profile image."
+                );
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                app.Logger.LogWarning(
+                    ex,
+                    "Could not remove deleted profile image."
+                );
+            }
+        }
+    }
+
+    // Remove the authentication cookie
+    await context.SignOutAsync(
+        CookieAuthenticationDefaults.AuthenticationScheme
+    );
+
+    // Redirect the user to the login page
+    return Results.LocalRedirect("/login");
+})
+.RequireAuthorization();
+
+app.Run();
